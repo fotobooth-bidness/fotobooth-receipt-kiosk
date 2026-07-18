@@ -1,0 +1,1 @@
+# fotobooth-receipt-kiosk
