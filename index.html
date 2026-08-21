@@ -64,16 +64,15 @@
   /* ============================ ATTRACT ============================ */
   #attract{
     background:var(--white);
-    cursor:pointer;
   }
   #attract .halo{
     position:absolute;width:80vmin;height:80vmin;border-radius:50%;
     background:radial-gradient(circle,rgba(0,0,0,.03),transparent 60%);
-    animation:breathe 5s ease-in-out infinite;
+    animation:breathe 5s ease-in-out infinite;pointer-events:none;
   }
   @keyframes breathe{0%,100%{transform:scale(.9);opacity:.6}50%{transform:scale(1.05);opacity:1}}
   #attract .mark{font-size:clamp(56px,11vw,140px);line-height:.9;position:relative;color:var(--black);}
-  #attract .attract-hero{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;padding:0 8vw;}
+  #attract .attract-hero{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;padding:0 8vw;pointer-events:none;}
   #attract .hero-img{display:none;max-width:min(78vw,620px);max-height:38vh;object-fit:contain;}
   #attract.stacked-mode .hero-img{max-height:30vh;}
   #attract .hero-text{display:none;font-size:clamp(44px,9vw,120px);line-height:1.02;color:var(--black);text-align:center;word-break:break-word;}
@@ -83,18 +82,17 @@
     #attract.stacked-mode .hero-img{max-height:26vh;}
     #attract .cta{margin-top:48px;}
   }
-  #attract .tag{margin-top:18px;font-size:clamp(13px,1.6vw,18px);letter-spacing:.35em;text-transform:uppercase;color:var(--black);opacity:.55;text-align:center;}
+  #attract .tag{margin-top:18px;font-size:clamp(13px,1.6vw,18px);letter-spacing:.35em;text-transform:uppercase;color:var(--black);opacity:.55;text-align:center;pointer-events:none;}
   #attract .tag.hide{display:none;}
   #attract .cta{
     margin-top:64px;position:relative;
     padding:22px 54px;border:2px solid var(--black);border-radius:100px;color:var(--black);
     font-size:clamp(16px,2vw,22px);letter-spacing:.2em;text-transform:uppercase;
-    animation:pulse 2.4s ease-in-out infinite;
+    animation:pulse 2.4s ease-in-out infinite;cursor:pointer;
   }
+  /* generous invisible tap bleed so near-misses still start the session */
+  #attract .cta::before{content:"";position:absolute;top:-40px;bottom:-40px;left:-40px;right:-40px;border-radius:120px;}
   @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,0,0,.18)}50%{box-shadow:0 0 0 18px rgba(0,0,0,0)}}
-  #attract .powered-by{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 44px);left:0;right:0;display:none;flex-direction:column;align-items:center;gap:6px;color:var(--black);}
-  #attract .powered-by span:first-child{font-size:11px;letter-spacing:.32em;text-transform:uppercase;opacity:.45;}
-  #attract .powered-by .pb-mark{font-size:clamp(22px,3.4vw,32px);line-height:1;opacity:.85;}
   #attract .event-label{position:absolute;bottom:40px;font-size:12px;letter-spacing:.3em;text-transform:uppercase;opacity:.45;color:var(--black);}
 
   /* ============================ LIVE / CAPTURE ============================ */
@@ -103,6 +101,13 @@
   #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
   #video.thermal-preview{filter:grayscale(1) contrast(1.4) brightness(1.05);}
   .vignette{position:absolute;inset:0;box-shadow:inset 0 0 200px 40px rgba(0,0,0,.7);pointer-events:none;}
+  #crop-guide{position:absolute;inset:0;pointer-events:none;}
+  #crop-guide .cg-dim{position:absolute;background:rgba(0,0,0,.62);transition:all .15s ease;}
+  #crop-guide .cg-frame{position:absolute;border:2px solid rgba(255,255,255,.9);box-shadow:0 0 0 1px rgba(0,0,0,.3);transition:all .15s ease;}
+  #capture-exit{position:absolute;top:calc(env(safe-area-inset-top) + 16px);left:16px;width:48px;height:48px;border-radius:50%;
+    background:rgba(0,0,0,.45);color:#fff;font-size:22px;line-height:1;display:flex;align-items:center;justify-content:center;
+    z-index:60;backdrop-filter:blur(2px);border:1.5px solid rgba(255,255,255,.35);}
+  #capture-exit:active{transform:scale(.92);background:rgba(0,0,0,.6);}
 
   #countdown{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
@@ -260,8 +265,7 @@
     <div class="hero-text brand" id="hero-text"></div>
   </div>
   <div class="tag" id="attract-tag">receipt photo booth</div>
-  <button class="cta">Tap to Start</button>
-  <div class="powered-by" id="powered-by"><span>powered by</span><span class="pb-mark brand">fotobooth<span class="dot">.</span></span></div>
+  <button class="cta" id="start-btn">Tap to Start</button>
 </section>
 <!-- attract-event retained for compatibility -->
 <div id="attract-event" style="display:none"></div>
@@ -271,11 +275,19 @@
   <div id="cam-wrap">
     <video id="video" autoplay playsinline muted></video>
     <div class="vignette"></div>
+    <div id="crop-guide" aria-hidden="true">
+      <div class="cg-dim cg-top"></div>
+      <div class="cg-dim cg-bottom"></div>
+      <div class="cg-dim cg-left"></div>
+      <div class="cg-dim cg-right"></div>
+      <div class="cg-frame"></div>
+    </div>
   </div>
   <div class="shot-tally" id="tally"></div>
   <div id="countdown"></div>
   <div id="flash"></div>
   <div class="prompt-band" id="prompt-band"></div>
+  <button id="capture-exit" aria-label="Cancel">✕</button>
 </section>
 
 <!-- ================= PROCESSING ================= -->
@@ -584,12 +596,41 @@ async function startCam(){
   if(stream) return true;
   try{
     stream = await navigator.mediaDevices.getUserMedia(camConstraints());
-    $('#video').srcObject = stream;
+    const v=$('#video');
+    v.srcObject = stream;
+    v.addEventListener('loadedmetadata', positionCropGuide, {once:false});
     return true;
   }catch(e){
     return false;
   }
 }
+
+/* position the crop guide so the bright square exactly matches what grabFrame() keeps */
+function positionCropGuide(){
+  const v=$('#video'), wrap=$('#cam-wrap'), g=$('#crop-guide');
+  if(!v||!wrap||!g) return;
+  const vw=v.videoWidth, vh=v.videoHeight;
+  const W=wrap.clientWidth, H=wrap.clientHeight;
+  if(!vw||!vh||!W||!H) return;
+  // object-fit:cover scale
+  const scale=Math.max(W/vw, H/vh);
+  // captured square is min(vw,vh) in native pixels, centered → screen size:
+  const sq=Math.min(vw,vh)*scale;
+  // clamp so it never exceeds the visible area
+  const side=Math.min(sq, W, H);
+  const left=Math.round((W-side)/2), top=Math.round((H-side)/2);
+  const right=left+side, bottom=top+side;
+  const f=g.querySelector('.cg-frame');
+  f.style.left=left+'px'; f.style.top=top+'px'; f.style.width=side+'px'; f.style.height=side+'px';
+  const dTop=g.querySelector('.cg-top'), dBot=g.querySelector('.cg-bottom'),
+        dL=g.querySelector('.cg-left'), dR=g.querySelector('.cg-right');
+  dTop.style.left='0'; dTop.style.top='0'; dTop.style.width='100%'; dTop.style.height=top+'px';
+  dBot.style.left='0'; dBot.style.top=bottom+'px'; dBot.style.width='100%'; dBot.style.bottom='0';
+  dL.style.left='0'; dL.style.top=top+'px'; dL.style.width=left+'px'; dL.style.height=side+'px';
+  dR.style.left=right+'px'; dR.style.top=top+'px'; dR.style.right='0'; dR.style.height=side+'px';
+}
+window.addEventListener('resize', positionCropGuide);
+window.addEventListener('orientationchange', ()=>setTimeout(positionCropGuide,300));
 
 /* ---------- session flow ---------- */
 async function beginSession(){
@@ -599,10 +640,22 @@ async function beginSession(){
     $('#prompt-band').textContent = 'Camera unavailable — check permissions';
     return;
   }
+  requestAnimationFrame(positionCropGuide);   // ensure guide matches once laid out
   state.shots = [];
+  sessionCancelled = false;
   renderTally(0);
   await getReady();
+  if(sessionCancelled) return;
   runCaptureLoop();
+}
+
+let sessionCancelled = false;
+function cancelSession(){
+  sessionCancelled = true;
+  $('#countdown').innerHTML='';
+  $('#prompt-band').textContent='';
+  state.shots = [];
+  show('attract');
 }
 
 function getReady(){
@@ -610,7 +663,7 @@ function getReady(){
     const el=$('#countdown');
     el.innerHTML='<span class="ready">Get ready…</span>';
     $('#prompt-band').textContent = state.photos>1 ? "We'll take "+state.photos+" photos" : '';
-    setTimeout(()=>{ el.innerHTML=''; res(); }, 2000);
+    setTimeout(res, 2000);
   });
 }
 
@@ -627,14 +680,17 @@ const prompts=['Big smile!','Strike a pose','Say fotobooth.','One more!','Work i
 
 async function runCaptureLoop(){
   for(let i=0;i<state.photos;i++){
+    if(sessionCancelled) return;
     $('#prompt-band').textContent = prompts[i%prompts.length];
     await countdownTo();
+    if(sessionCancelled) return;
     fireFlash();
     const shot = grabFrame();
     state.shots.push(shot);
     renderTally(i+1);
     await wait(700);
   }
+  if(sessionCancelled) return;
   $('#prompt-band').textContent='';
   finishSession();
 }
@@ -644,6 +700,7 @@ function countdownTo(){
     let n=state.countdown;
     const el=$('#countdown');
     const tick=()=>{
+      if(sessionCancelled){ el.innerHTML=''; res(); return; }
       if(n<=0){el.innerHTML='';res();return;}
       el.innerHTML='<span class="num">'+n+'</span>';
       n--; setTimeout(tick,1000);
@@ -1151,7 +1208,8 @@ function goFullscreen(){
   const fn=el.requestFullscreen||el.webkitRequestFullscreen;
   if(fn && !document.fullscreenElement){ try{ fn.call(el); }catch(e){} }
 }
-$('#attract').addEventListener('click', ()=>{ goFullscreen(); beginSession(); });
+$('#start-btn').addEventListener('click', (e)=>{ e.stopPropagation(); goFullscreen(); beginSession(); });
+$('#capture-exit').addEventListener('click', (e)=>{ e.stopPropagation(); cancelSession(); });
 $('#btn-done').addEventListener('click', endSession);
 $('#btn-reprint').addEventListener('click', ()=>{ printReceipt(); });
 $('#btn-share').addEventListener('click', async ()=>{
@@ -1170,7 +1228,7 @@ $('#btn-share').addEventListener('click', async ()=>{
 /* attract screen — mode-driven: fotobooth only, their brand as hero, or stacked */
 function refreshAttract(){
   const fb=$('#hero-fotobooth'), img=$('#hero-img'), txt=$('#hero-text');
-  const tag=$('#attract-tag'), pb=$('#powered-by');
+  const tag=$('#attract-tag');
   // resolve the collaborator brand into either an <img> or Playfair text
   const hasBrand = state.brandType==='image' ? !!state.brandImg : !!state.brandText.trim();
   function showBrand(){
@@ -1182,7 +1240,7 @@ function refreshAttract(){
   }
   // default everything off
   fb.style.display='none'; img.style.display='none'; txt.style.display='none';
-  pb.style.display='none'; tag.classList.remove('hide');
+  tag.classList.remove('hide');
 
   const mode = (state.attractMode==='brand'||state.attractMode==='stacked') && !hasBrand
     ? 'fotobooth' : state.attractMode;   // fall back if brand not set yet
@@ -1193,7 +1251,6 @@ function refreshAttract(){
     fb.style.display='block';
   }else if(mode==='brand'){
     showBrand();
-    pb.style.display='flex';             // fotobooth. credited at the bottom
     tag.classList.add('hide');
   }else if(mode==='stacked'){
     showBrand();
