@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>fotobooth. kiosk</title>
+<style>
+  /* ============================================================
+     fotobooth. receipt kiosk
+     Palette: pine ground, warm paper, ink black, thermal red
+     Type: Fraunces (display serif) + system sans (utility)
+     ============================================================ */
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Space+Mono:wght@400;700&display=swap');
+
+  :root{
+    --pine:#1e3a2f;
+    --pine-deep:#132419;
+    --paper:#f4efe6;
+    --paper-dim:#e6ded0;
+    --ink:#1a1a17;
+    --thermal:#c0392b;
+    --gold:#c8a24b;
+    --shadow:rgba(0,0,0,.35);
+    --strip-gap:10px;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;overflow:hidden;}
+  body{
+    font-family:'Space Mono',ui-monospace,monospace;
+    background:var(--pine-deep);
+    color:var(--paper);
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:manipulation;
+  }
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+  /* ---- screen scaffolding ---- */
+  .screen{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;}
+  .screen.active{display:flex;}
+
+  .serif{font-family:'Fraunces',Georgia,serif;}
+  .brand{font-family:'Fraunces',serif;font-weight:900;letter-spacing:-.02em;}
+  .brand .dot{color:var(--gold);}
+
+  /* ============================ ATTRACT ============================ */
+  #attract{
+    background:
+      radial-gradient(120% 90% at 50% -10%, #2c5443 0%, var(--pine) 45%, var(--pine-deep) 100%);
+    cursor:pointer;
+  }
+  #attract .halo{
+    position:absolute;width:80vmin;height:80vmin;border-radius:50%;
+    background:radial-gradient(circle,rgba(200,162,75,.14),transparent 60%);
+    animation:breathe 5s ease-in-out infinite;
+  }
+  @keyframes breathe{0%,100%{transform:scale(.9);opacity:.6}50%{transform:scale(1.05);opacity:1}}
+  #attract .mark{font-size:clamp(56px,11vw,140px);line-height:.9;position:relative;}
+  #attract .tag{margin-top:18px;font-size:clamp(13px,1.6vw,18px);letter-spacing:.35em;text-transform:uppercase;color:var(--gold);opacity:.85;}
+  #attract .cta{
+    margin-top:64px;position:relative;
+    padding:22px 54px;border:2px solid var(--paper);border-radius:100px;
+    font-size:clamp(16px,2vw,22px);letter-spacing:.2em;text-transform:uppercase;
+    animation:pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(244,239,230,.4)}50%{box-shadow:0 0 0 18px rgba(244,239,230,0)}}
+  #attract .event-label{position:absolute;bottom:40px;font-size:12px;letter-spacing:.3em;text-transform:uppercase;opacity:.5;}
+
+  /* ============================ LIVE / CAPTURE ============================ */
+  #capture{background:#000;}
+  #cam-wrap{position:absolute;inset:0;overflow:hidden;background:#000;}
+  #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
+  #video.thermal-preview{filter:grayscale(1) contrast(1.4) brightness(1.05);}
+  .vignette{position:absolute;inset:0;box-shadow:inset 0 0 200px 40px rgba(0,0,0,.7);pointer-events:none;}
+
+  #countdown{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:'Fraunces',serif;font-weight:900;font-size:min(46vh,46vw);color:#fff;
+    text-shadow:0 8px 40px rgba(0,0,0,.6);pointer-events:none;
+  }
+  #countdown .num{animation:pop .9s ease-out;}
+  @keyframes pop{0%{transform:scale(.3);opacity:0}30%{transform:scale(1);opacity:1}100%{transform:scale(1.6);opacity:0}}
+
+  #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;}
+  #flash.fire{animation:flash .5s ease-out;}
+  @keyframes flash{0%{opacity:.95}100%{opacity:0}}
+
+  .shot-tally{position:absolute;top:calc(env(safe-area-inset-top) + 26px);left:0;right:0;display:flex;gap:12px;justify-content:center;pointer-events:none;}
+  .shot-tally .pip{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.6);}
+  .shot-tally .pip.done{background:var(--gold);border-color:var(--gold);}
+
+  .prompt-band{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 40px);left:0;right:0;text-align:center;font-size:clamp(16px,2.4vw,26px);letter-spacing:.06em;color:#fff;text-shadow:0 2px 12px #000;}
+
+  /* ============================ PROCESSING ============================ */
+  #processing{background:var(--pine-deep);gap:26px;}
+  .spinner{width:64px;height:64px;border-radius:50%;border:4px solid rgba(244,239,230,.2);border-top-color:var(--gold);animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #processing .msg{font-size:14px;letter-spacing:.25em;text-transform:uppercase;opacity:.8;}
+
+  /* ============================ RESULT ============================ */
+  #result{background:radial-gradient(120% 90% at 50% -10%,#2c5443,var(--pine) 50%,var(--pine-deep));gap:0;padding:24px;}
+  .result-inner{display:flex;gap:clamp(24px,4vw,64px);align-items:center;max-width:1100px;width:100%;justify-content:center;flex-wrap:wrap;}
+
+  /* the printed receipt mock */
+  .receipt{
+    background:var(--paper);color:var(--ink);width:300px;padding:22px 20px 30px;
+    box-shadow:0 24px 60px var(--shadow);position:relative;
+    font-size:12px;line-height:1.5;
+    animation:rise .6s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes rise{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+  /* torn edges */
+  .receipt::before,.receipt::after{
+    content:"";position:absolute;left:0;right:0;height:10px;
+    background-size:16px 16px;
+  }
+  .receipt::before{top:-9px;background:
+    linear-gradient(135deg,var(--paper) 50%,transparent 50%) 0 0/16px 16px repeat-x,
+    linear-gradient(-135deg,var(--paper) 50%,transparent 50%) 8px 0/16px 16px repeat-x;}
+  .receipt::after{bottom:-9px;transform:scaleY(-1);background:
+    linear-gradient(135deg,var(--paper) 50%,transparent 50%) 0 0/16px 16px repeat-x,
+    linear-gradient(-135deg,var(--paper) 50%,transparent 50%) 8px 0/16px 16px repeat-x;}
+
+  .receipt .r-head{text-align:center;border-bottom:1px dashed #999;padding-bottom:12px;margin-bottom:12px;}
+  .receipt .r-lockup{display:flex;align-items:center;justify-content:center;gap:10px;}
+  .receipt .r-mark{height:22px;object-fit:contain;}
+  .receipt .r-div{color:#1a1a17;font-size:22px;font-weight:300;opacity:.45;}
+  .receipt .r-div.hide{display:none;}
+  .receipt .r-eventlogo{height:24px;max-width:48%;object-fit:contain;}
+  .receipt .r-eventlogo[src=""]{display:none;}
+  .receipt .r-strip{display:grid;grid-template-columns:1fr;gap:var(--strip-gap);}
+  .receipt .r-strip.grid-4{grid-template-columns:1fr 1fr;}
+  .receipt .r-strip img{width:100%;display:block;filter:grayscale(1) contrast(1.1);}
+  .receipt .r-foot{text-align:center;border-top:1px dashed #999;padding-top:12px;margin-top:12px;}
+  .receipt .r-qr{width:96px;height:96px;margin:10px auto 6px;display:block;image-rendering:pixelated;}
+  .receipt .r-qrcap{font-size:10px;letter-spacing:.15em;text-transform:uppercase;text-align:center;margin-bottom:4px;}
+  .receipt .r-qrcap.hidden{display:none;}
+  .receipt .r-eventfoot{max-width:72%;max-height:150px;margin:14px auto 10px;display:block;object-fit:contain;filter:grayscale(1) contrast(1.1);}
+  .receipt .r-eventfoot.hidden{display:none;}
+  .receipt .r-thanks{font-size:10px;letter-spacing:.15em;text-transform:uppercase;}
+  .receipt .r-meta{font-size:9px;color:#666;margin-top:8px;}
+
+  .result-actions{display:flex;flex-direction:column;gap:16px;min-width:260px;}
+  .result-actions h2{font-family:'Fraunces',serif;font-weight:600;font-size:30px;margin-bottom:6px;}
+  .result-actions p{font-size:12px;opacity:.7;margin-bottom:10px;line-height:1.6;}
+  .btn{
+    padding:18px 26px;border-radius:14px;font-size:15px;letter-spacing:.05em;
+    display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .12s,background .2s;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn-primary{background:var(--gold);color:var(--pine-deep);font-weight:700;}
+  .btn-ghost{background:transparent;border:1.5px solid rgba(244,239,230,.5);color:var(--paper);}
+  .btn-solid{background:var(--paper);color:var(--ink);font-weight:700;}
+  .auto-return{font-size:11px;letter-spacing:.2em;text-transform:uppercase;opacity:.5;text-align:center;margin-top:4px;}
+
+  /* ============================ ADMIN ============================ */
+  .gear{position:fixed;top:calc(env(safe-area-inset-top) + 14px);right:16px;width:40px;height:40px;border-radius:50%;
+    background:rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;font-size:20px;opacity:.35;z-index:50;}
+  #admin{background:var(--pine-deep);display:none;flex-direction:column;padding:0;z-index:100;}
+  #admin.active{display:flex;}
+  .admin-bar{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid rgba(255,255,255,.1);}
+  .admin-bar h1{font-family:'Fraunces',serif;font-weight:900;font-size:24px;}
+  .admin-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:24px;}
+  .admin-grid{max-width:760px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .field{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px;}
+  .field.full{grid-column:1/-1;}
+  .field label{display:block;font-size:11px;letter-spacing:.18em;text-transform:uppercase;opacity:.6;margin-bottom:10px;}
+  .field input[type=text],.field input[type=number],.field select{
+    width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.15);
+    background:rgba(0,0,0,.3);color:var(--paper);font-family:inherit;font-size:15px;
+  }
+  .field .row{display:flex;align-items:center;gap:14px;}
+  .field .val{font-family:'Fraunces',serif;font-size:26px;min-width:52px;text-align:center;}
+  .stepper{display:flex;gap:10px;}
+  .stepper button{width:46px;height:46px;border-radius:10px;background:rgba(255,255,255,.08);font-size:22px;}
+  .toggle{position:relative;width:58px;height:32px;border-radius:32px;background:rgba(255,255,255,.15);transition:background .2s;}
+  .toggle.on{background:var(--gold);}
+  .toggle .knob{position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;transition:left .2s;}
+  .toggle.on .knob{left:29px;}
+  input[type=range]{width:100%;accent-color:var(--gold);}
+  .stat-row{display:flex;gap:14px;}
+  .stat{flex:1;background:rgba(0,0,0,.3);border-radius:12px;padding:14px;text-align:center;}
+  .stat .n{font-family:'Fraunces',serif;font-weight:900;font-size:32px;color:var(--gold);line-height:1;}
+  .stat .l{font-size:10px;letter-spacing:.15em;text-transform:uppercase;opacity:.6;margin-top:6px;}
+  .logo-preview{width:60px;height:60px;border-radius:10px;object-fit:contain;background:rgba(255,255,255,.06);}
+  .seg{display:flex;gap:8px;}
+  .seg-btn{flex:1;padding:14px 10px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);font-size:14px;transition:background .15s,border-color .15s;}
+  .seg-btn.on{background:var(--gold);color:var(--pine-deep);font-weight:700;border-color:var(--gold);}
+  .brand-lockup{display:flex;align-items:center;gap:14px;background:#f4efe6;border-radius:10px;padding:14px 18px;width:100%;min-height:64px;}
+  .brand-lockup .brand-mark{height:26px;object-fit:contain;}
+  .brand-lockup .brand-div{color:#1a1a17;font-size:26px;font-weight:300;opacity:.5;}
+  .brand-lockup .event-logo-preview{height:30px;max-width:55%;object-fit:contain;}
+  .brand-lockup .event-logo-preview:not([src]),.brand-lockup .event-logo-preview[src=""]{display:none;}
+  .brand-lockup .brand-div.hide{display:none;}
+  .admin-note{font-size:11px;line-height:1.6;opacity:.55;margin-top:6px;}
+  .fixed-note{padding:12px 14px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);font-size:14px;opacity:.8;}
+  .cam-test-wrap{margin-top:12px;}
+  .cam-test-wrap video{width:100%;max-width:360px;aspect-ratio:1/1;object-fit:cover;border-radius:12px;background:#000;transform:scaleX(-1);display:block;}
+  .status-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:middle;}
+  .status-dot.ok{background:#4caf50;}.status-dot.warn{background:var(--gold);}.status-dot.err{background:var(--thermal);}
+
+  /* PIN pad */
+  #pin{position:fixed;inset:0;background:var(--pine-deep);display:none;flex-direction:column;align-items:center;justify-content:center;gap:26px;z-index:120;}
+  #pin.active{display:flex;}
+  #pin h2{font-family:'Fraunces',serif;font-weight:600;font-size:22px;opacity:.8;}
+  .pin-dots{display:flex;gap:16px;}
+  .pin-dots .d{width:16px;height:16px;border-radius:50%;border:2px solid var(--paper);}
+  .pin-dots .d.f{background:var(--paper);}
+  .pin-pad{display:grid;grid-template-columns:repeat(3,72px);gap:16px;}
+  .pin-pad button{height:72px;border-radius:50%;background:rgba(255,255,255,.06);font-size:26px;font-family:'Fraunces',serif;}
+  .pin-pad button:active{background:rgba(255,255,255,.16);}
+  .pin-err{color:var(--thermal);font-size:12px;letter-spacing:.1em;height:14px;}
+
+  .hidden{display:none!important;}
+  canvas{display:none;}
+</style>
+</head>
+<body>
+
+<!-- ================= ATTRACT ================= -->
+<section id="attract" class="screen active">
+  <div class="halo"></div>
+  <div class="mark brand">fotobooth<span class="dot">.</span></div>
+  <div class="tag">receipt photo booth</div>
+  <button class="cta">Tap to Start</button>
+  <div class="event-label" id="attract-event"></div>
+</section>
+
+<!-- ================= CAPTURE ================= -->
+<section id="capture" class="screen">
+  <div id="cam-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <div class="vignette"></div>
+  </div>
+  <div class="shot-tally" id="tally"></div>
+  <div id="countdown"></div>
+  <div id="flash"></div>
+  <div class="prompt-band" id="prompt-band"></div>
+</section>
+
+<!-- ================= PROCESSING ================= -->
+<section id="processing" class="screen">
+  <div class="spinner"></div>
+  <div class="msg" id="proc-msg">Developing your strip…</div>
+</section>
+
+<!-- ================= RESULT ================= -->
+<section id="result" class="screen">
+  <div class="result-inner">
+    <div class="receipt" id="receipt">
+      <div class="r-head">
+        <div class="r-lockup" id="rc-lockup">
+          <img class="r-mark" id="rc-mark" src="" alt="fotobooth.">
+          <span class="r-div" id="rc-div">|</span>
+          <img class="r-eventlogo" id="rc-eventlogo" src="" alt="">
+        </div>
+      </div>
+      <div class="r-strip" id="rc-strip"></div>
+      <div class="r-foot">
+        <img class="r-qr hidden" id="rc-qr" alt="scan to download">
+        <div class="r-qrcap hidden" id="rc-qrcap"></div>
+        <img class="r-eventfoot hidden" id="rc-eventfoot" alt="">
+        <div class="r-thanks">Thanks for popping in</div>
+        <div class="r-meta" id="rc-meta"></div>
+      </div>
+    </div>
+    <div class="result-actions">
+      <h2 class="serif">You look great.</h2>
+      <p>Your receipt is printing. Grab your copy, or take the digital version with you.</p>
+      <button class="btn btn-primary" id="btn-reprint">Print another copy</button>
+      <button class="btn btn-solid" id="btn-share">Save / share digital</button>
+      <button class="btn btn-ghost" id="btn-done">I'm done</button>
+      <div class="auto-return" id="auto-return"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ADMIN GEAR ================= -->
+<button class="gear" id="gear" aria-label="Settings">⚙</button>
+
+<!-- ================= PIN ================= -->
+<section id="pin">
+  <h2 class="serif">Enter admin PIN</h2>
+  <div class="pin-dots" id="pin-dots"></div>
+  <div class="pin-err" id="pin-err"></div>
+  <div class="pin-pad" id="pin-pad"></div>
+  <button class="btn btn-ghost" id="pin-cancel" style="padding:12px 30px;">Cancel</button>
+</section>
+
+<!-- ================= ADMIN ================= -->
+<section id="admin">
+  <div class="admin-bar">
+    <h1 class="brand">Admin</h1>
+    <button class="btn btn-primary" id="admin-close" style="padding:12px 26px;">Done</button>
+  </div>
+  <div class="admin-scroll">
+    <div class="admin-grid">
+
+      <div class="field full">
+        <label>Camera</label>
+        <div class="row">
+          <select id="f-camera" style="flex:1;"><option value="">Default camera</option></select>
+          <button class="btn btn-ghost" id="btn-cam-test" style="padding:12px 20px;">Test camera</button>
+        </div>
+        <div class="cam-test-wrap" id="cam-test-wrap" style="display:none;">
+          <video id="cam-test-video" autoplay playsinline muted></video>
+          <button class="btn btn-ghost" id="btn-cam-stop" style="padding:8px 16px;font-size:12px;margin-top:8px;">Stop preview</button>
+        </div>
+        <div class="admin-note" id="cam-status"><span class="status-dot warn"></span>Tap Test camera to check your webcam and grant permission.</div>
+      </div>
+
+      <div class="field">
+        <label>Photos per print</label>
+        <div class="seg" id="seg-photos">
+          <button data-photos="1" class="seg-btn">1 photo</button>
+          <button data-photos="4" class="seg-btn">4 photos (2×2)</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Countdown length</label>
+        <select id="f-count">
+          <option value="1">1 second</option>
+          <option value="2">2 seconds</option>
+          <option value="3">3 seconds</option>
+          <option value="4">4 seconds</option>
+          <option value="5">5 seconds</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Paper width</label>
+        <div class="fixed-note">112 mm (4″) — fixed</div>
+        <div class="admin-note">Sized for the Citizen CT-S4000: 112 mm media, 104 mm printable, 832 dots at 203 dpi.</div>
+      </div>
+
+      <div class="field">
+        <label>Copies printed automatically</label>
+        <select id="f-copies">
+          <option value="1">1 copy</option>
+          <option value="2">2 copies</option>
+          <option value="3">3 copies</option>
+          <option value="4">4 copies</option>
+        </select>
+      </div>
+
+      <div class="field full">
+        <label>Header — event / collaborator PNG</label>
+        <div class="row">
+          <div class="brand-lockup">
+            <img class="brand-mark" src="" id="brand-mark-preview" alt="fotobooth">
+            <span class="brand-div" id="brand-div">|</span>
+            <img class="event-logo-preview" id="event-logo-preview" alt="">
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px;">
+          <input type="file" id="f-event-logo" accept="image/png,image/*" style="font-size:12px;max-width:190px;">
+          <button id="event-logo-clear" class="btn btn-ghost" style="padding:6px 12px;font-size:11px;">Clear</button>
+        </div>
+        <div class="admin-note">The <strong>fotobooth.</strong> wordmark is fixed. Upload a transparent PNG of the event or business name — it prints to the right of the divider as <em>fotobooth. | your event</em>. Leave empty to print the wordmark alone.</div>
+      </div>
+
+      <div class="field">
+        <label>Brightness</label>
+        <input type="range" id="f-bright" min="-60" max="60" value="0">
+        <label style="margin-top:14px;">Contrast</label>
+        <input type="range" id="f-contrast" min="-60" max="60" value="0">
+      </div>
+
+      <div class="field">
+        <label>QR code</label>
+        <div class="row"><div class="toggle" id="t-qr"><div class="knob"></div></div><span id="t-qr-lbl">On</span></div>
+        <div class="admin-note"><strong>On:</strong> QR prints in the footer linking to the address below; event PNG sits beside the wordmark up top. <strong>Off:</strong> no QR — the event PNG moves down into the footer (printed larger) and the header shows the wordmark alone.</div>
+      </div>
+
+      <div class="field full">
+        <label>QR link</label>
+        <input type="text" id="f-qr-url" placeholder="https://fotobooth.biz" inputmode="url">
+        <div class="admin-note">Where the QR sends people — your site or socials. Same on every receipt.</div>
+      </div>
+
+      <div class="field full">
+        <label>QR caption</label>
+        <input type="text" id="f-qr-caption" placeholder="MADE BY fotobooth." maxlength="30">
+        <div class="admin-note">Prints under the QR. Leave blank for none.</div>
+      </div>
+
+      <div class="field">
+        <label>Dithering style</label>
+        <select id="f-dither">
+          <option value="floyd">Floyd–Steinberg (photo)</option>
+          <option value="atkinson">Atkinson (crisp)</option>
+          <option value="threshold">Hard threshold (graphic)</option>
+        </select>
+      </div>
+
+      <div class="field full">
+        <label>Printing — Citizen CT-S4000</label>
+        <select id="f-print-mode" style="margin-bottom:12px;">
+          <option value="webusb">Silent · USB direct (Android + Chrome)</option>
+          <option value="webprnt">Silent · Citizen WebPRNT (LAN)</option>
+          <option value="relay">Silent · local relay (port 9100)</option>
+          <option value="dialog">Browser print dialog</option>
+        </select>
+        <div id="usb-controls">
+          <div class="row" style="gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-primary" id="btn-usb-connect" style="padding:12px 22px;">Connect printer</button>
+            <button class="btn btn-ghost" id="btn-usb-test" style="padding:12px 20px;">Test print</button>
+          </div>
+          <div class="admin-note" id="usb-status"><span class="status-dot warn"></span>No USB printer connected.</div>
+        </div>
+        <div id="net-controls" style="display:none;">
+          <div class="row" style="flex-wrap:wrap;gap:10px;">
+            <input type="text" id="f-printer-ip" placeholder="Printer / bridge IP (e.g. 192.168.1.50)" style="flex:1;min-width:200px;">
+            <input type="number" id="f-printer-port" placeholder="Port" value="80" style="width:100px;">
+            <button class="btn btn-ghost" id="btn-test" style="padding:12px 20px;">Test print</button>
+          </div>
+          <div class="admin-note" id="printer-status">
+            <span class="status-dot warn"></span>Enter the printer's IP, then Test.
+          </div>
+        </div>
+        <div class="admin-note" id="print-mode-help"></div>
+      </div>
+
+      <div class="field full">
+        <label>Today</label>
+        <div class="stat-row">
+          <div class="stat"><div class="n" id="s-prints">0</div><div class="l">Receipts</div></div>
+          <div class="stat"><div class="n" id="s-sessions">0</div><div class="l">Sessions</div></div>
+          <div class="stat"><div class="n" id="s-photos">0</div><div class="l">Photos</div></div>
+        </div>
+        <button class="btn btn-ghost" id="stats-reset" style="padding:10px 18px;font-size:12px;margin-top:14px;">Reset today's counts</button>
+      </div>
+
+      <div class="field full">
+        <label>Change admin PIN</label>
+        <input type="text" id="f-pin" inputmode="numeric" maxlength="6" placeholder="4–6 digits">
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<canvas id="work"></canvas>
+<canvas id="stripCanvas"></canvas>
+
+<script>
+/* =====================================================================
+   fotobooth. kiosk — logic
+   Notes on persistence: kiosk runs offline for a whole event, so state
+   lives in memory. (Browser storage is unavailable in this sandbox.)
+   ===================================================================== */
+
+const $ = s => document.querySelector(s);
+const screens = ['attract','capture','processing','result'];
+
+const BRAND_LOGO='data:image/png;base64,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';
+const state = {
+  photos: 4,          // 1 or 4 only
+  qrUrl: 'https://fotobooth.biz',      // where the QR points — editable in admin
+  qrCaption: 'MADE BY fotobooth.',     // text printed under the QR — editable in admin
+  countdown: 3,
+  paper: 112,
+  copies: 1,
+  eventLogo: null,    // small PNG: event name / collaborator, sits after the wordmark
+  logo: null,         // set to BRAND_LOGO at load
+  cameraId: '',       // chosen camera deviceId ('' = default/user-facing)
+  bright: 0,
+  contrast: 0,
+  qr: true,
+  dither: 'floyd',
+  printMode: 'webusb',
+  printerIP: '',
+  printerPort: 80,
+  pin: '1234',
+  stats: { prints:0, sessions:0, photos:0 },
+  shots: []       // captured dithered dataURLs for current session
+};
+
+/* ---------- persistence ----------
+   Settings + daily analytics survive reloads/power cycles on the tablet.
+   Wrapped in try/catch so the kiosk still runs if storage is unavailable. */
+const STORE_KEY='fotobooth.kiosk.v1';
+const PERSIST_FIELDS=['photos','qrUrl','qrCaption','countdown','copies','eventLogo','cameraId','bright','contrast','qr','dither','printMode','printerIP','printerPort','pin'];
+function todayKey(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
+function saveState(){
+  try{
+    const out={}; PERSIST_FIELDS.forEach(f=>out[f]=state[f]);
+    out.stats=state.stats; out.statsDate=todayKey();
+    localStorage.setItem(STORE_KEY, JSON.stringify(out));
+  }catch(e){/* storage blocked — in-memory only */}
+}
+function loadState(){
+  try{
+    const raw=localStorage.getItem(STORE_KEY); if(!raw) return;
+    const saved=JSON.parse(raw);
+    PERSIST_FIELDS.forEach(f=>{ if(saved[f]!==undefined) state[f]=saved[f]; });
+    if(saved.statsDate===todayKey() && saved.stats) state.stats=saved.stats;
+    else state.stats={prints:0,sessions:0,photos:0};
+  }catch(e){/* ignore corrupt/blocked storage */}
+}
+
+/* ---------- screen switching ---------- */
+function show(id){
+  screens.forEach(s=>$('#'+s).classList.toggle('active', s===id));
+}
+
+/* ---------- camera ---------- */
+let stream=null;
+function camConstraints(){
+  const v = state.cameraId
+    ? { deviceId:{exact:state.cameraId}, width:{ideal:1280}, height:{ideal:1280} }
+    : { facingMode:'user', width:{ideal:1280}, height:{ideal:1280} };
+  return { video:v, audio:false };
+}
+async function startCam(){
+  if(stream) return true;
+  try{
+    stream = await navigator.mediaDevices.getUserMedia(camConstraints());
+    $('#video').srcObject = stream;
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
+/* ---------- session flow ---------- */
+async function beginSession(){
+  const ok = await startCam();
+  show('capture');
+  if(!ok){
+    $('#prompt-band').textContent = 'Camera unavailable — check permissions';
+    return;
+  }
+  state.shots = [];
+  renderTally(0);
+  runCaptureLoop();
+}
+
+function renderTally(done){
+  const t=$('#tally'); t.innerHTML='';
+  for(let i=0;i<state.photos;i++){
+    const p=document.createElement('div');
+    p.className='pip'+(i<done?' done':'');
+    t.appendChild(p);
+  }
+}
+
+const prompts=['Big smile!','Strike a pose','Say fotobooth.','One more!','Work it','Last one!'];
+
+async function runCaptureLoop(){
+  for(let i=0;i<state.photos;i++){
+    $('#prompt-band').textContent = prompts[i%prompts.length];
+    await countdownTo();
+    fireFlash();
+    const shot = grabFrame();
+    state.shots.push(shot);
+    renderTally(i+1);
+    await wait(700);
+  }
+  $('#prompt-band').textContent='';
+  finishSession();
+}
+
+function countdownTo(){
+  return new Promise(res=>{
+    let n=state.countdown;
+    const el=$('#countdown');
+    const tick=()=>{
+      if(n<=0){el.innerHTML='';res();return;}
+      el.innerHTML='<span class="num">'+n+'</span>';
+      n--; setTimeout(tick,1000);
+    };
+    tick();
+  });
+}
+
+function fireFlash(){
+  const f=$('#flash'); f.classList.remove('fire'); void f.offsetWidth; f.classList.add('fire');
+}
+
+/* grab current video frame -> square -> dithered dataURL */
+function grabFrame(){
+  const v=$('#video');
+  const c=$('#work');
+  const size=600;
+  c.width=size; c.height=size;
+  const ctx=c.getContext('2d');
+  // cover-crop to square, mirror to match preview
+  const vw=v.videoWidth||1280, vh=v.videoHeight||720;
+  const s=Math.min(vw,vh);
+  const sx=(vw-s)/2, sy=(vh-s)/2;
+  ctx.save();
+  ctx.translate(size,0); ctx.scale(-1,1);
+  ctx.drawImage(v, sx,sy,s,s, 0,0,size,size);
+  ctx.restore();
+  ditherCanvas(ctx,size,size);
+  return c.toDataURL('image/png');
+}
+
+/* ---------- dithering ---------- */
+function ditherCanvas(ctx,w,h){
+  const img=ctx.getImageData(0,0,w,h);
+  const d=img.data;
+  const b=state.bright, con=state.contrast;
+  const cf=(259*(con+255))/(255*(259-con));
+  // to grayscale + brightness/contrast
+  const gray=new Float32Array(w*h);
+  for(let i=0,p=0;i<d.length;i+=4,p++){
+    let lum=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+    lum=cf*(lum-128)+128+b;
+    gray[p]=Math.max(0,Math.min(255,lum));
+  }
+  const mode=state.dither;
+  const put=(p,v)=>{const i=p*4;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255;};
+  if(mode==='threshold'){
+    for(let p=0;p<gray.length;p++) put(p, gray[p]<128?0:255);
+  }else{
+    const diffusion = mode==='atkinson'
+      ? [[1,0,1/8],[2,0,1/8],[-1,1,1/8],[0,1,1/8],[1,1,1/8],[0,2,1/8]]
+      : [[1,0,7/16],[-1,1,3/16],[0,1,5/16],[1,1,1/16]]; // floyd
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const p=y*w+x, old=gray[p], nv=old<128?0:255, err=old-nv;
+        put(p,nv);
+        for(const[dx,dy,f]of diffusion){
+          const nx=x+dx, ny=y+dy;
+          if(nx>=0&&nx<w&&ny>=0&&ny<h) gray[ny*w+nx]+=err*f;
+        }
+      }
+    }
+  }
+  ctx.putImageData(img,0,0);
+}
+
+/* ---------- build strip + finish ---------- */
+async function finishSession(){
+  show('processing');
+  await wait(900);
+  buildReceipt();
+  state.stats.sessions++;
+  state.stats.photos += state.shots.length;
+  refreshStats(); saveState();
+  show('result');
+  autoPrint();
+  startAutoReturn();
+}
+
+function buildReceipt(){
+  // fixed wordmark; event PNG rides in the header lockup ONLY when QR is on
+  $('#rc-mark').src = state.logo || BRAND_LOGO;
+  const evImg=$('#rc-eventlogo'), div=$('#rc-div'), evFoot=$('#rc-eventfoot');
+  const showEventInHeader = state.eventLogo && state.qr;
+  if(showEventInHeader){ evImg.src=state.eventLogo; div.classList.remove('hide'); evImg.classList.remove('hide'); }
+  else { evImg.src=''; div.classList.add('hide'); evImg.classList.add('hide'); }
+  // photo strip: 1 = single, 4 = 2x2 grid
+  const strip=$('#rc-strip'); strip.innerHTML='';
+  strip.classList.toggle('grid-4', state.shots.length===4);
+  state.shots.forEach(src=>{
+    const im=new Image(); im.src=src; strip.appendChild(im);
+  });
+  // QR slot: QR when on, event art (larger) when off
+  const qr=$('#rc-qr'), qrcap=$('#rc-qrcap');
+  if(state.qr){
+    qr.classList.remove('hidden');
+    qr.src = makeQR(state.qrUrl);
+    if(state.qrCaption){ qrcap.textContent=state.qrCaption; qrcap.classList.remove('hidden'); }
+    else qrcap.classList.add('hidden');
+    evFoot.classList.add('hidden'); evFoot.src='';
+  }else{
+    qr.classList.add('hidden');
+    qrcap.classList.add('hidden');
+    if(state.eventLogo){ evFoot.src=state.eventLogo; evFoot.classList.remove('hidden'); }
+    else { evFoot.src=''; evFoot.classList.add('hidden'); }
+  }
+  const now=new Date();
+  $('#rc-meta').textContent = now.toLocaleString() + '  ·  #' + sessionId();
+}
+
+let _sid=null;
+function sessionId(){ if(!_sid) _sid=Math.random().toString(36).slice(2,7).toUpperCase(); return _sid; }
+
+/* ---------- QR encoder (self-contained, byte mode, ECC level M) ----------
+   Real scannable QR. Auto-picks the smallest version that fits the URL.
+   Compact implementation of Galois-field / Reed-Solomon + matrix placement. */
+const QR = (function(){
+  // Galois field tables for RS
+  const EXP=new Array(256), LOG=new Array(256);
+  (function(){let x=1;for(let i=0;i<255;i++){EXP[i]=x;LOG[x]=i;x<<=1;if(x&0x100)x^=0x11d;}for(let i=255;i<256;i++)EXP[i]=EXP[i-255];})();
+  const gmul=(a,b)=>(a===0||b===0)?0:EXP[(LOG[a]+LOG[b])%255];
+  function rsGen(deg){let p=[1];for(let i=0;i<deg;i++){const np=new Array(p.length+1).fill(0);for(let j=0;j<p.length;j++){np[j]^=gmul(p[j],EXP[i]);np[j+1]^=p[j];}p=np;}return p;}
+  function rsEnc(data,ecLen){const gen=rsGen(ecLen);const res=new Array(ecLen).fill(0);for(const d of data){const f=d^res[0];res.shift();res.push(0);if(f!==0)for(let i=0;i<ecLen;i++)res[i]^=gmul(gen[i],f);}return res;}
+  // capacity (byte mode) + EC params for versions 1..10, level M
+  // [version]: {size, ecPerBlock, blocks:[ [numBlocks, dataCodewordsPerBlock], ... ], capacity}
+  const V={
+    1:{ec:10,g:[[1,16]]},2:{ec:16,g:[[1,28]]},3:{ec:26,g:[[1,44]]},
+    4:{ec:18,g:[[2,32]]},5:{ec:24,g:[[2,43]]},6:{ec:16,g:[[4,27]]},
+    7:{ec:18,g:[[4,31]]},8:{ec:22,g:[[2,38],[2,39]]},9:{ec:22,g:[[3,36],[2,37]]},
+    10:{ec:26,g:[[4,43],[1,44]]}
+  };
+  const dataCap=v=>V[v].g.reduce((s,[n,d])=>s+n*d,0);
+  function pickVersion(len){for(let v=1;v<=10;v++){ if(len+2 <= dataCap(v)) return v; } throw new Error('URL too long for QR v≤10'); }
+  function bytesFor(str){const b=[];for(let i=0;i<str.length;i++){const c=str.charCodeAt(i);if(c<128)b.push(c);else{b.push(63);}}return b;} // ASCII (URLs)
+  function buildData(str){
+    const bytes=bytesFor(str), v=pickVersion(bytes.length), size=17+v*4;
+    // bit stream: mode(0100)+len(8bit v1-9)+data + terminator + pad
+    let bits=[];const push=(val,n)=>{for(let i=n-1;i>=0;i--)bits.push((val>>i)&1);};
+    push(4,4); push(bytes.length,8); bytes.forEach(b=>push(b,8));
+    const totalData=dataCap(v);
+    for(let i=0;i<4 && bits.length<totalData*8;i++)bits.push(0); // terminator
+    while(bits.length%8)bits.push(0);
+    const dc=[];for(let i=0;i<bits.length;i+=8){let b=0;for(let j=0;j<8;j++)b=(b<<1)|bits[i+j];dc.push(b);}
+    const pads=[0xec,0x11];let pi=0;while(dc.length<totalData)dc.push(pads[pi++%2]);
+    // split into blocks, compute EC
+    const g=V[v].g, ecLen=V[v].ec; const dBlocks=[],eBlocks=[];let idx=0;
+    for(const[n,d]of g)for(let k=0;k<n;k++){const blk=dc.slice(idx,idx+d);idx+=d;dBlocks.push(blk);eBlocks.push(rsEnc(blk,ecLen));}
+    // interleave
+    const final=[];const maxD=Math.max(...dBlocks.map(b=>b.length));
+    for(let i=0;i<maxD;i++)for(const b of dBlocks)if(i<b.length)final.push(b[i]);
+    for(let i=0;i<ecLen;i++)for(const b of eBlocks)final.push(b[i]);
+    return {codewords:final,size,version:v};
+  }
+  function makeMatrix(str){
+    const {codewords,size,version}=buildData(str);
+    const m=Array.from({length:size},()=>new Array(size).fill(null));
+    const set=(r,c,v)=>{if(r>=0&&r<size&&c>=0&&c<size)m[r][c]=v;};
+    const finder=(r,c)=>{for(let dr=-1;dr<=7;dr++)for(let dc=-1;dc<=7;dc++){const rr=r+dr,cc=c+dc;if(rr<0||rr>=size||cc<0||cc>=size)continue;const inRing=(dr>=0&&dr<=6&&(dc===0||dc===6))||(dc>=0&&dc<=6&&(dr===0||dr===6));const inCore=dr>=2&&dr<=4&&dc>=2&&dc<=4;set(rr,cc,(inRing||inCore)?1:0);}};
+    finder(0,0);finder(0,size-7);finder(size-7,0);
+    // timing
+    for(let i=8;i<size-8;i++){if(m[6][i]===null)m[6][i]=(i%2===0)?1:0;if(m[i][6]===null)m[i][6]=(i%2===0)?1:0;}
+    // alignment (v2+ single center for v2-6; v7+ has more but our URLs fit small v)
+    const alignPos={2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],7:[6,22,38],8:[6,24,42],9:[6,26,46],10:[6,28,50]}[version];
+    if(alignPos){for(const r of alignPos)for(const c of alignPos){if((r<=7&&c<=7)||(r<=7&&c>=size-8)||(r>=size-8&&c<=7))continue;for(let dr=-2;dr<=2;dr++)for(let dc=-2;dc<=2;dc++){const ring=Math.max(Math.abs(dr),Math.abs(dc));set(r+dr,c+dc,(ring===1)?0:1);}}}
+    // dark module
+    set(size-8,8,1);
+    // reserve format areas (set to 0 temporarily, filled after)
+    const reserve=(r,c)=>{if(m[r][c]===null)m[r][c]=0;};
+    for(let i=0;i<9;i++){reserve(8,i);reserve(i,8);}
+    for(let i=0;i<8;i++){reserve(8,size-1-i);reserve(size-1-i,8);}
+    // place data with mask 0 ((r+c)%2==0)
+    let bitIdx=0;const bitsArr=[];codewords.forEach(cw=>{for(let i=7;i>=0;i--)bitsArr.push((cw>>i)&1);});
+    let up=true;
+    for(let col=size-1;col>0;col-=2){
+      if(col===6)col--;
+      for(let t=0;t<size;t++){
+        const row=up?size-1-t:t;
+        for(let c2=0;c2<2;c2++){const cc=col-c2;
+          if(m[row][cc]===null){let b=bitIdx<bitsArr.length?bitsArr[bitIdx++]:0;if(((row+cc)%2)===0)b^=1;m[row][cc]=b;}
+        }
+      }
+      up=!up;
+    }
+    // format info for level M (00) + mask 0 -> precomputed 15-bit string
+    const fmt='101010000010010'; // level M, mask 0
+    const fb=fmt.split('').map(Number);
+    for(let i=0;i<=5;i++)m[8][i]=fb[i];
+    m[8][7]=fb[6];m[8][8]=fb[7];m[7][8]=fb[8];
+    for(let i=9;i<15;i++)m[14-i][8]=fb[i];
+    for(let i=0;i<8;i++)m[size-1-i][8]=fb[i];
+    for(let i=8;i<15;i++)m[8][size-15+i]=fb[i];
+    return m;
+  }
+  return {matrix:makeMatrix};
+})();
+
+function makeQR(text){
+  const m=QR.matrix(text);
+  const n=m.length, quiet=4, px=4, dim=(n+quiet*2)*px;
+  const c=document.createElement('canvas');c.width=c.height=dim;
+  const x=c.getContext('2d');
+  x.fillStyle='#fff';x.fillRect(0,0,dim,dim);
+  x.fillStyle='#000';
+  for(let r=0;r<n;r++)for(let col=0;col<n;col++)if(m[r][col])x.fillRect((col+quiet)*px,(r+quiet)*px,px,px);
+  return c.toDataURL();
+}
+
+/* ---------- printing ----------
+   CT-S4000 @ 203 dpi. Printable width by paper:
+     112 mm -> 832 dots, 82.5 mm -> 640 dots, 80 mm -> 576 dots.
+   Silent paths: WebPRNT (HTTP to printer) or a local relay (HTTP -> TCP 9100).
+   Both receive an ESC/POS raster we build from the receipt canvas. No dialog.
+*/
+const DOTS = { '112':832, '82.5':640, '80':576 };
+function dotWidth(){ return DOTS[String(state.paper)] || 832; }
+
+async function autoPrint(){
+  for(let i=0;i<state.copies;i++) await printReceipt();
+}
+
+async function printReceipt(){
+  try{
+    const escpos = await buildReceiptRaster();   // Uint8Array of ESC/POS bytes
+    let ok=false;
+    if(state.printMode==='webusb')       ok = await sendWebUSB(escpos);
+    else if(state.printMode==='webprnt') ok = await sendWebPRNT(escpos);
+    else if(state.printMode==='relay')   ok = await sendRelay(escpos);
+    if(!ok && state.printMode!=='dialog'){
+      flashPrinterError();
+      return;
+    }
+    if(state.printMode==='dialog') await doBrowserPrint();
+    state.stats.prints++; refreshStats(); saveState();
+  }catch(e){
+    flashPrinterError();
+  }
+}
+
+/* ---------- WebUSB (Android Chrome, printer cabled by USB) ----------
+   Direct silent printing: claim the printer's vendor interface, find the
+   bulk-OUT endpoint, and write the raw ESC/POS raster to it. No network. */
+let usbDevice=null, usbEndpoint=null, usbInterface=null;
+
+async function usbConnect(){
+  if(!('usb' in navigator)) throw new Error('WebUSB not supported — use Android Chrome');
+  // classCode 7 = printer. Let the user pick; filter helps surface the CT-S4000.
+  usbDevice = await navigator.usb.requestDevice({ filters:[{classCode:7}, {}] });
+  await usbDevice.open();
+  if(usbDevice.configuration===null) await usbDevice.selectConfiguration(1);
+  // find an interface with a bulk OUT endpoint (printer class if present)
+  let chosen=null, ep=null;
+  for(const cfg of usbDevice.configurations){
+    for(const intf of cfg.interfaces){
+      for(const alt of intf.alternates){
+        const out=alt.endpoints.find(e=>e.direction==='out' && e.type==='bulk');
+        if(out){ chosen=intf; ep=out.endpointNumber; if(alt.interfaceClass===7){ chosen=intf; ep=out.endpointNumber; break; } }
+      }
+      if(chosen && ep) break;
+    }
+    if(chosen && ep) break;
+  }
+  if(!chosen) throw new Error('No bulk endpoint found on this device');
+  usbInterface=chosen.interfaceNumber; usbEndpoint=ep;
+  try{ await usbDevice.claimInterface(usbInterface); }
+  catch(e){ /* some Android builds need the config re-selected */ await usbDevice.selectConfiguration(1); await usbDevice.claimInterface(usbInterface); }
+  return true;
+}
+
+async function sendWebUSB(bytes){
+  try{
+    if(!usbDevice || !usbDevice.opened){ return false; }
+    // transfer in chunks (some stacks cap bulk transfers)
+    const CH=16384;
+    for(let i=0;i<bytes.length;i+=CH){
+      await usbDevice.transferOut(usbEndpoint, bytes.slice(i,i+CH));
+    }
+    return true;
+  }catch(e){ return false; }
+}
+
+/* auto-reconnect to a previously granted device on load (no prompt needed) */
+async function usbTryResume(){
+  if(!('usb' in navigator)) return;
+  try{
+    const devs=await navigator.usb.getDevices();
+    if(devs.length){
+      usbDevice=devs[0]; await usbDevice.open();
+      if(usbDevice.configuration===null) await usbDevice.selectConfiguration(1);
+      for(const cfg of usbDevice.configurations)for(const intf of cfg.interfaces)for(const alt of intf.alternates){
+        const out=alt.endpoints.find(e=>e.direction==='out'&&e.type==='bulk');
+        if(out){ usbInterface=intf.interfaceNumber; usbEndpoint=out.endpointNumber; }
+      }
+      if(usbInterface!=null){ await usbDevice.claimInterface(usbInterface); updateUsbStatus(true); }
+    }
+  }catch(e){/* needs a manual connect tap */}
+}
+
+/* Build a monochrome receipt canvas at exact dot width, then encode as ESC/POS
+   GS v 0 raster. Guests' photos are already 1-bit dithered; text/logo/QR are
+   drawn and threshold-packed here so everything prints as one raster block. */
+async function buildReceiptCanvas(){
+  const W = dotWidth();
+  const pad = 16;
+  const innerW = W - pad*2;
+  const c = document.createElement('canvas');
+  const ctx = c.getContext('2d');
+  let y = pad;
+  const blocks = [];
+
+  // ---- fixed header: fotobooth. wordmark  |  optional event/collaborator PNG ----
+  const mark = await loadImg(state.logo || BRAND_LOGO);
+  let evLogo=null; if(state.eventLogo){ try{ evLogo=await loadImg(state.eventLogo); }catch(e){} }
+  const headH = 64;
+  const markH = Math.min(46, headH);
+  const markW = markH * mark.width/mark.height;
+  // event PNG rides in the header lockup ONLY when the QR is shown.
+  // With QR off, the header is the wordmark alone and the event art moves
+  // down into the QR's slot (sized larger) — see the footer block below.
+  const showEventInHeader = evLogo && state.qr;
+  if(showEventInHeader){
+    const evH = Math.min(44, headH);
+    let evW = evH * evLogo.width/evLogo.height;
+    const gap = 18, divW = 3;
+    const maxEvW = innerW - markW - gap - divW - gap;
+    if(evW > maxEvW) evW = maxEvW;
+    const totalW = markW + gap + divW + gap + evW;
+    const startX = pad + (innerW - totalW)/2;
+    blocks.push({type:'draw',h:headH,fn:(yy)=>{
+      const cy = yy + headH/2;
+      ctx.imageSmoothingEnabled=true;
+      ctx.drawImage(mark, startX, cy - markH/2, markW, markH);
+      ctx.fillStyle='#000'; ctx.globalAlpha=.4;
+      ctx.fillRect(startX+markW+gap, cy-evH/2, divW, evH);
+      ctx.globalAlpha=1;
+      ctx.drawImage(evLogo, startX+markW+gap+divW+gap, cy - evH/2, evW, evH);
+    }});
+  }else{
+    blocks.push({type:'draw',h:headH,fn:(yy)=>{
+      const cy=yy+headH/2;
+      ctx.imageSmoothingEnabled=true;
+      ctx.drawImage(mark, pad+(innerW-markW)/2, cy-markH/2, markW, markH);
+    }});
+  }
+  y+=headH;
+  blocks.push({type:'rule'}); y+=16;
+
+  // ---- photos: 1 = single square, 4 = 2x2 grid ----
+  const imgs=[]; for(const src of state.shots) imgs.push(await loadImg(src));
+  if(imgs.length===4){
+    const gap=10;
+    const cell=Math.floor((innerW-gap)/2);
+    const gridH=cell*2+gap;
+    blocks.push({type:'draw',h:gridH,fn:(yy)=>{
+      ctx.imageSmoothingEnabled=false;
+      const pos=[[pad,yy],[pad+cell+gap,yy],[pad,yy+cell+gap],[pad+cell+gap,yy+cell+gap]];
+      imgs.forEach((im,i)=>ctx.drawImage(im,pos[i][0],pos[i][1],cell,cell));
+    }});
+    y+=gridH+12;
+  }else{
+    const s=innerW;
+    blocks.push({type:'draw',h:s,fn:(yy)=>{ ctx.imageSmoothingEnabled=false; ctx.drawImage(imgs[0],pad,yy,s,s); }});
+    y+=s+12;
+  }
+
+  blocks.push({type:'rule'}); y+=16;
+
+  // ---- QR slot: QR code when on; event art (larger) when off ----
+  if(state.qr){
+    const q = await loadImg(makeQR(state.qrUrl));
+    const qs = Math.round(innerW*0.5);
+    blocks.push({type:'draw',h:qs,fn:(yy)=>{ ctx.imageSmoothingEnabled=false; ctx.drawImage(q,pad+(innerW-qs)/2,yy,qs,qs); }});
+    y+=qs+8;
+    if(state.qrCaption){ blocks.push({type:'text',text:state.qrCaption,font:'16px monospace'}); y+=24; }
+  }else if(evLogo){
+    // QR off: event/collaborator PNG takes the QR's place, sized to fill it.
+    const maxW = Math.round(innerW*0.72);
+    const maxH = 150;
+    let ew = evLogo.width, eh = evLogo.height;
+    const scale = Math.min(maxW/ew, maxH/eh);
+    ew = Math.round(ew*scale); eh = Math.round(eh*scale);
+    blocks.push({type:'draw',h:eh,fn:(yy)=>{ ctx.imageSmoothingEnabled=true; ctx.drawImage(evLogo, pad+(innerW-ew)/2, yy, ew, eh); }});
+    y+=eh+12;
+    blocks.push({type:'rule'}); y+=16;
+  }
+  blocks.push({type:'text',text:'THANKS FOR POPPING IN',font:'18px monospace'}); y+=28;
+  blocks.push({type:'text',text:new Date().toLocaleString()+'  #'+sessionId(),font:'14px monospace'}); y+=22;
+  y+=pad;
+
+  // ---- render ----
+  c.width=W; c.height=y;
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,y);
+  ctx.fillStyle='#000';
+  let yy=pad;
+  for(let bi=0;bi<blocks.length;bi++){
+    const b=blocks[bi];
+    if(b.type==='text'){
+      ctx.font=b.font; ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillStyle='#000';
+      const fs=parseInt(b.font.match(/(\d+)px/)[1],10);
+      ctx.fillText(b.text,W/2,yy); yy+=fs+12;
+    }else if(b.type==='rule'){
+      ctx.strokeStyle='#000'; ctx.setLineDash([4,4]); ctx.beginPath();
+      ctx.moveTo(pad,yy); ctx.lineTo(W-pad,yy); ctx.stroke(); ctx.setLineDash([]); yy+=16;
+    }else if(b.type==='draw'){
+      b.fn(yy); yy+=b.h+12;
+    }
+  }
+  return c;
+}
+
+/* encode canvas -> ESC/POS raster (GS v 0). Threshold at 128 (photos already dithered). */
+async function buildReceiptRaster(){
+  const c = await buildReceiptCanvas();
+  const W=c.width, H=c.height;
+  const ctx=c.getContext('2d');
+  const data=ctx.getImageData(0,0,W,H).data;
+  const bytesW=Math.ceil(W/8);
+  const raster=new Uint8Array(bytesW*H);
+  for(let y=0;y<H;y++){
+    for(let x=0;x<W;x++){
+      const i=(y*W+x)*4;
+      const lum=0.299*data[i]+0.587*data[i+1]+0.114*data[i+2];
+      if(lum<128) raster[y*bytesW+(x>>3)] |= (0x80>>(x&7));
+    }
+  }
+  // assemble ESC/POS
+  const out=[];
+  out.push(0x1B,0x40);                       // ESC @ init
+  out.push(0x1B,0x61,0x01);                  // center
+  // GS v 0 m xL xH yL yH  + data
+  out.push(0x1D,0x76,0x30,0x00, bytesW&0xff,(bytesW>>8)&0xff, H&0xff,(H>>8)&0xff);
+  for(let i=0;i<raster.length;i++) out.push(raster[i]);
+  out.push(0x1B,0x64,0x03);                  // feed 3 lines
+  out.push(0x1D,0x56,0x42,0x00);             // GS V B 0 -> full cut
+  return new Uint8Array(out);
+}
+
+/* WebPRNT: POST the ePOS/raw payload to the printer's HTTP print service.
+   Citizen WebPRNT accepts a POST to /webprnt/... ; we send the raw ESC/POS. */
+async function sendWebPRNT(bytes){
+  const base='http://'+state.printerIP+(state.printerPort?(':'+state.printerPort):'');
+  try{
+    const res=await fetch(base+'/print',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:bytes});
+    return res.ok;
+  }catch(e){ return false; }
+}
+/* Local relay: your tiny server accepts the raw bytes and writes them to TCP 9100. */
+async function sendRelay(bytes){
+  const base='http://'+state.printerIP+(state.printerPort?(':'+state.printerPort):'');
+  try{
+    const res=await fetch(base+'/print',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:bytes});
+    return res.ok;
+  }catch(e){ return false; }
+}
+const loadImg=src=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src;});
+
+function flashPrinterError(){
+  const el=$('#proc-msg');
+  // brief non-blocking toast on result screen
+  const t=document.createElement('div');
+  t.textContent='Printer not reachable — check power & network';
+  t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--thermal);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 8px 30px rgba(0,0,0,.4)';
+  document.body.appendChild(t); setTimeout(()=>t.remove(),3200);
+}
+async function doBrowserPrint(){
+  const w=state.paper+'mm';
+  const canvas=await buildReceiptCanvas();
+  const png=canvas.toDataURL('image/png');
+  const html=`<html><head><style>
+    @page{size:${w} auto;margin:0}
+    body{width:${w};margin:0;padding:0;background:#fff}
+    img{width:100%;display:block}
+  </style></head><body><img src="${png}"></body></html>`;
+  const f=document.createElement('iframe');
+  f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  document.body.appendChild(f);
+  f.contentDocument.write(html); f.contentDocument.close();
+  const imgEls=[...f.contentDocument.images]; let left=imgEls.length;
+  const go=()=>{ try{f.contentWindow.focus();f.contentWindow.print();}catch(e){} setTimeout(()=>f.remove(),1500); };
+  if(!left) go(); else imgEls.forEach(im=>{ if(im.complete) (--left||go()); else im.onload=im.onerror=()=>(--left||go()); });
+}
+
+/* ---------- auto return ---------- */
+let returnTimer=null, returnCount=0;
+function startAutoReturn(){
+  returnCount=45; tickReturn();
+}
+function tickReturn(){
+  clearTimeout(returnTimer);
+  $('#auto-return').textContent='Returns to start in '+returnCount+'s';
+  if(returnCount<=0){ endSession(); return; }
+  returnCount--; returnTimer=setTimeout(tickReturn,1000);
+}
+function endSession(){
+  clearTimeout(returnTimer);
+  _sid=null; state.shots=[];
+  show('attract');
+}
+
+/* ---------- helpers ---------- */
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+/* ================= wiring ================= */
+$('#attract').addEventListener('click', ()=>{ beginSession(); });
+$('#btn-done').addEventListener('click', endSession);
+$('#btn-reprint').addEventListener('click', ()=>{ printReceipt(); });
+$('#btn-share').addEventListener('click', async ()=>{
+  // share the first shot (or could stitch a strip). Uses Web Share where available.
+  try{
+    const blob=await (await fetch(state.shots[0])).blob();
+    const file=new File([blob],'fotobooth.png',{type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:'fotobooth.'});
+    }else{
+      const a=document.createElement('a'); a.href=state.shots[0]; a.download='fotobooth.png'; a.click();
+    }
+  }catch(e){}
+});
+
+/* attract event label — show the uploaded event/collaborator PNG if present */
+function refreshAttract(){
+  const el=$('#attract-event');
+  if(state.eventLogo){ el.innerHTML='<img src="'+state.eventLogo+'" style="height:20px;object-fit:contain;opacity:.85;">'; }
+  else { el.textContent=''; }
+}
+
+/* ---------- admin: PIN ---------- */
+let pinBuf='';
+$('#gear').addEventListener('click', openPin);
+function openPin(){ pinBuf=''; $('#pin-err').textContent=''; renderPinDots(); $('#pin').classList.add('active'); }
+$('#pin-cancel').addEventListener('click', ()=>$('#pin').classList.remove('active'));
+function renderPinDots(){
+  const d=$('#pin-dots'); d.innerHTML='';
+  const len=Math.max(4,state.pin.length);
+  for(let i=0;i<len;i++){const e=document.createElement('div');e.className='d'+(i<pinBuf.length?' f':'');d.appendChild(e);}
+}
+(function buildPinPad(){
+  const pad=$('#pin-pad');
+  ['1','2','3','4','5','6','7','8','9','','0','⌫'].forEach(k=>{
+    const b=document.createElement('button');
+    if(k==='') { b.style.visibility='hidden'; }
+    b.textContent=k;
+    b.addEventListener('click',()=>{
+      if(k==='⌫'){pinBuf=pinBuf.slice(0,-1);}
+      else if(k!==''){ pinBuf+=k; }
+      renderPinDots();
+      if(pinBuf.length>=state.pin.length){
+        if(pinBuf===state.pin){ $('#pin').classList.remove('active'); openAdmin(); }
+        else{ $('#pin-err').textContent='Wrong PIN'; pinBuf=''; setTimeout(renderPinDots,400); }
+      }
+    });
+    pad.appendChild(b);
+  });
+})();
+
+/* ---------- admin: panel ---------- */
+function openAdmin(){ syncAdmin(); listCameras(); $('#admin').classList.add('active'); }
+$('#admin-close').addEventListener('click', ()=>{ stopCamTest(); $('#admin').classList.remove('active'); refreshAttract(); saveState(); });
+
+function syncAdmin(){
+  syncPhotoSeg();
+  $('#f-count').value=state.countdown;
+  $('#f-copies').value=state.copies;
+  $('#f-camera').value=state.cameraId;
+  $('#f-qr-url').value=state.qrUrl;
+  $('#f-qr-caption').value=state.qrCaption;
+  $('#f-bright').value=state.bright;
+  $('#f-contrast').value=state.contrast;
+  $('#f-dither').value=state.dither;
+  $('#f-print-mode').value=state.printMode;
+  const ipEl=$('#f-printer-ip'), portEl=$('#f-printer-port');
+  if(ipEl) ipEl.value=state.printerIP;
+  if(portEl) portEl.value=state.printerPort;
+  toggleModeControls();
+  updatePrintModeHelp();
+  setToggle(state.qr);
+  $('#brand-mark-preview').src=BRAND_LOGO;
+  $('#event-logo-preview').src=state.eventLogo||'';
+  $('#brand-div').classList.toggle('hide', !state.eventLogo);
+  refreshStats();
+}
+function syncPhotoSeg(){
+  document.querySelectorAll('#seg-photos .seg-btn').forEach(b=>{
+    b.classList.toggle('on', +b.dataset.photos===state.photos);
+  });
+}
+document.querySelectorAll('#seg-photos .seg-btn').forEach(b=>{
+  b.addEventListener('click',()=>{ state.photos=+b.dataset.photos; syncPhotoSeg(); saveState(); });
+});
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+$('#f-count').addEventListener('change',e=>{ state.countdown=+e.target.value; saveState(); });
+$('#f-copies').addEventListener('change',e=>{ state.copies=+e.target.value; saveState(); });
+$('#f-qr-url').addEventListener('input',e=>{ state.qrUrl=e.target.value.trim(); saveState(); });
+$('#f-qr-caption').addEventListener('input',e=>{ state.qrCaption=e.target.value; saveState(); });
+$('#f-bright').addEventListener('input',e=>state.bright=+e.target.value);
+$('#f-contrast').addEventListener('input',e=>state.contrast=+e.target.value);
+$('#f-dither').addEventListener('change',e=>state.dither=e.target.value);
+$('#f-print-mode').addEventListener('change',e=>{
+  state.printMode=e.target.value;
+  if(state.printMode==='webprnt') state.printerPort=80;
+  else if(state.printMode==='relay') state.printerPort=3000;
+  const portEl=$('#f-printer-port'); if(portEl) portEl.value=state.printerPort;
+  toggleModeControls();
+  updatePrintModeHelp(); updatePrinterStatus();
+});
+function toggleModeControls(){
+  const usb = state.printMode==='webusb';
+  const net = state.printMode==='webprnt' || state.printMode==='relay';
+  $('#usb-controls').style.display = usb ? '' : 'none';
+  $('#net-controls').style.display = net ? '' : 'none';
+}
+$('#btn-usb-connect').addEventListener('click',async()=>{
+  try{ await usbConnect(); updateUsbStatus(true); }
+  catch(err){ updateUsbStatus(false, err.message); }
+});
+$('#btn-usb-test').addEventListener('click',async()=>{
+  const bytes=await buildReceiptRaster();
+  const ok=await sendWebUSB(bytes);
+  if(!ok) updateUsbStatus(false,'Test failed — tap Connect printer first');
+});
+function updateUsbStatus(connected,msg){
+  const s=$('#usb-status');
+  if(connected) s.innerHTML='<span class="status-dot ok"></span>Printer connected over USB. Prints silently.';
+  else s.innerHTML='<span class="status-dot err"></span>'+(msg||'No USB printer connected.');
+}
+
+/* ---------- admin: camera test ---------- */
+let camTestStream=null;
+function camStatus(kind,msg){ $('#cam-status').innerHTML='<span class="status-dot '+kind+'"></span>'+msg; }
+async function listCameras(){
+  try{
+    const devices=await navigator.mediaDevices.enumerateDevices();
+    const cams=devices.filter(d=>d.kind==='videoinput');
+    const sel=$('#f-camera');
+    sel.innerHTML='<option value="">Default camera</option>';
+    cams.forEach((c,i)=>{
+      const o=document.createElement('option');
+      o.value=c.deviceId; o.textContent=c.label || ('Camera '+(i+1));
+      if(c.deviceId===state.cameraId) o.selected=true;
+      sel.appendChild(o);
+    });
+  }catch(e){/* labels appear after first grant */}
+}
+async function startCamTest(){
+  stopCamTest();
+  try{
+    const v = state.cameraId
+      ? { deviceId:{exact:state.cameraId}, width:{ideal:1280}, height:{ideal:1280} }
+      : { facingMode:'user', width:{ideal:1280}, height:{ideal:1280} };
+    camTestStream=await navigator.mediaDevices.getUserMedia({video:v,audio:false});
+    $('#cam-test-video').srcObject=camTestStream;
+    $('#cam-test-wrap').style.display='';
+    camStatus('ok','Camera working. This is the feed guests will see.');
+    await listCameras();   // labels are available now that access is granted
+  }catch(e){
+    let m='Camera unavailable.';
+    if(e.name==='NotAllowedError') m='Permission denied — allow camera access in your browser, then tap Test again.';
+    else if(e.name==='NotFoundError') m='No camera found — check it\'s connected and not in use by another app.';
+    else if(e.name==='NotReadableError') m='Camera is busy — close other apps using it (Zoom, Meet, etc.) and retry.';
+    camStatus('err',m);
+  }
+}
+function stopCamTest(){
+  if(camTestStream){ camTestStream.getTracks().forEach(t=>t.stop()); camTestStream=null; }
+  const w=$('#cam-test-wrap'); if(w) w.style.display='none';
+}
+$('#btn-cam-test').addEventListener('click',startCamTest);
+$('#btn-cam-stop').addEventListener('click',()=>{ stopCamTest(); camStatus('warn','Preview stopped. Tap Test camera to check again.'); });
+$('#f-camera').addEventListener('change',e=>{
+  state.cameraId=e.target.value; saveState();
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }  // force capture to use new camera
+  if(camTestStream) startCamTest();   // restart preview on the newly picked camera
+});
+$('#f-printer-ip').addEventListener('input',e=>{state.printerIP=e.target.value;updatePrinterStatus();});
+$('#f-printer-port').addEventListener('input',e=>state.printerPort=+e.target.value);
+
+function updatePrintModeHelp(){
+  const h=$('#print-mode-help');
+  if(state.printMode==='webusb'){
+    h.innerHTML='Android + Chrome only. Plug the CT-S4000 into the tablet by USB, tap Connect printer once, grant access. Prints silently after that — no network. (Page must be loaded over https or localhost for USB access.)';
+  }else if(state.printMode==='webprnt'){
+    h.innerHTML='Requires the Citizen Ethernet/WebPRNT interface board. The tablet POSTs the receipt straight to the printer — no dialog. Port is usually 80.';
+  }else if(state.printMode==='relay'){
+    h.innerHTML='Run the small relay on a Mac/PC/Raspberry Pi on the same network. It receives the receipt and pushes it to the printer on TCP 9100. Relay code ships alongside this file.';
+  }else{
+    h.innerHTML='Opens the system print dialog. Works with the Citizen driver, but needs a tap each time.';
+  }
+}
+$('#f-pin').addEventListener('input',e=>{ const v=e.target.value.replace(/\D/g,''); if(v.length>=4) state.pin=v; });
+
+function setToggle(on){ $('#t-qr').classList.toggle('on',on); $('#t-qr-lbl').textContent=on?'On':'Off'; state.qr=on; }
+$('#t-qr').addEventListener('click',()=>setToggle(!state.qr));
+
+$('#f-event-logo').addEventListener('change',e=>{
+  const file=e.target.files[0]; if(!file)return;
+  const r=new FileReader();
+  r.onload=()=>{ state.eventLogo=r.result; $('#event-logo-preview').src=r.result; $('#brand-div').classList.remove('hide'); saveState(); };
+  r.readAsDataURL(file);
+});
+$('#event-logo-clear').addEventListener('click',()=>{
+  state.eventLogo=null; $('#event-logo-preview').src=''; $('#f-event-logo').value=''; $('#brand-div').classList.add('hide'); saveState();
+});
+
+function updatePrinterStatus(){
+  const s=$('#printer-status');
+  if(state.printMode==='dialog'){
+    s.innerHTML='<span class="status-dot ok"></span>Dialog mode — prints via the system Citizen driver.';
+  }else if(state.printerIP){
+    s.innerHTML='<span class="status-dot ok"></span>'+(state.printMode==='webprnt'?'WebPRNT':'Relay')+' → '+state.printerIP+':'+state.printerPort+'. Test to confirm.';
+  }else{
+    s.innerHTML='<span class="status-dot warn"></span>Enter the printer\'s IP, then Test.';
+  }
+}
+$('#btn-test').addEventListener('click',async()=>{
+  if(state.printMode==='dialog'){ await doBrowserPrint(); return; }
+  const bytes=await buildReceiptRaster();
+  const ok = state.printMode==='webprnt' ? await sendWebPRNT(bytes) : await sendRelay(bytes);
+  updatePrinterStatus();
+  if(!ok) flashPrinterError();
+});
+
+function refreshStats(){
+  $('#s-prints').textContent=state.stats.prints;
+  $('#s-sessions').textContent=state.stats.sessions;
+  $('#s-photos').textContent=state.stats.photos;
+}
+$('#stats-reset').addEventListener('click',()=>{ state.stats={prints:0,sessions:0,photos:0}; refreshStats(); saveState(); });
+
+/* init */
+loadState();
+state.logo=BRAND_LOGO;                       // wordmark is fixed, never user-changed
+state.paper=112;                             // paper width is fixed for the CT-S4000
+if(state.photos!==1 && state.photos!==4) state.photos=4;
+state.countdown=clamp(state.countdown,1,5);  // scrolling option caps at 5s
+state.copies=clamp(state.copies,1,4);        // up to 4 copies
+refreshAttract();
+usbTryResume();
+</script>
+</body>
+</html>
