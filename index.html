@@ -230,6 +230,14 @@
   #admin.active{display:flex;}
   .admin-bar{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--line);}
   .admin-bar h1{font-family:'Playfair Display',serif;font-weight:900;font-size:24px;}
+  .admin-preview{border-bottom:1px solid var(--line);background:#fafafa;padding:16px 24px;flex-shrink:0;}
+  .admin-preview .ap-inner{max-width:760px;margin:0 auto;display:flex;gap:20px;align-items:center;}
+  .admin-preview #ap-canvas{width:120px;height:auto;background:#fff;border:1px solid #e2e2e2;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.08);flex-shrink:0;}
+  .admin-preview .ap-side{flex:1;min-width:0;}
+  .admin-preview .ap-label{font-size:11px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:6px;}
+  .admin-preview .ap-note{font-size:13px;opacity:.8;margin-bottom:10px;line-height:1.4;}
+  .admin-preview .ap-upload span{display:inline-block;background:var(--black);color:#fff;font-size:12px;letter-spacing:.05em;padding:8px 16px;border-radius:8px;cursor:pointer;}
+  .admin-preview .ap-hint{font-size:10px;opacity:.45;margin-top:8px;line-height:1.4;}
   .admin-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:24px;}
   .admin-grid{max-width:760px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:18px;}
   .field{background:#fafafa;border:1px solid var(--line);border-radius:14px;padding:16px;}
@@ -356,7 +364,7 @@
       <p id="result-blurb">Your receipt is printing. Grab your copy, or take the digital version with you.</p>
       <button class="btn btn-primary" id="btn-reprint">Print another copy</button>
       <button class="btn btn-solid" id="btn-share">Get digital copy</button>
-      <button class="btn btn-ghost" id="btn-done">I'm done</button>
+      <button class="btn btn-ghost" id="btn-done">Finish</button>
       <div class="auto-return" id="auto-return"></div>
     </div>
   </div>
@@ -389,6 +397,20 @@
   <div class="admin-bar">
     <h1 class="brand">Admin</h1>
     <button class="btn btn-primary" id="admin-close" style="padding:12px 26px;">Done</button>
+  </div>
+  <div class="admin-preview" id="admin-preview">
+    <div class="ap-inner">
+      <canvas id="ap-canvas"></canvas>
+      <div class="ap-side">
+        <div class="ap-label">Live preview</div>
+        <div class="ap-note" id="ap-note">Upload a test photo to preview your receipt with a real face.</div>
+        <label class="ap-upload">
+          <input type="file" id="ap-photo" accept="image/*" hidden>
+          <span id="ap-upload-btn">Upload test photo</span>
+        </label>
+        <div class="ap-hint">Approximate — the printed result is the final word, especially for brightness &amp; contrast.</div>
+      </div>
+    </div>
   </div>
   <div class="admin-scroll">
     <div class="admin-grid">
@@ -1522,8 +1544,64 @@ function renderPinDots(){
 })();
 
 /* ---------- admin: panel ---------- */
-function openAdmin(){ syncAdmin(); listCameras(); $('#admin').classList.add('active'); }
+function openAdmin(){ syncAdmin(); listCameras(); $('#admin').classList.add('active'); renderAdminPreview(); }
 $('#admin-close').addEventListener('click', ()=>{ stopCamTest(); $('#admin').classList.remove('active'); refreshAttract(); saveState(); });
+
+/* ---------- admin live preview ---------- */
+let adminTestPhoto=null;   // raw uploaded test photo (Image), or null
+
+// dither the test photo into a square dataURL using current bright/contrast/dither
+function ditherTestPhoto(){
+  if(!adminTestPhoto) return null;
+  const size=600;
+  const c=document.createElement('canvas'); c.width=size; c.height=size;
+  const ctx=c.getContext('2d');
+  const iw=adminTestPhoto.width, ih=adminTestPhoto.height;
+  const s=Math.min(iw,ih), sx=(iw-s)/2, sy=(ih-s)/2;
+  ctx.drawImage(adminTestPhoto, sx,sy,s,s, 0,0,size,size);
+  ditherCanvas(ctx,size,size);   // uses live state.bright / state.contrast / state.dither
+  return c.toDataURL('image/png');
+}
+
+let previewPending=false;
+async function renderAdminPreview(){
+  const note=$('#ap-note'), cv=$('#ap-canvas');
+  if(!adminTestPhoto){
+    note.style.display=''; cv.style.display='none';
+    return;
+  }
+  note.style.display='none'; cv.style.display='';
+  if(previewPending) return;    // coalesce rapid slider changes
+  previewPending=true;
+  await new Promise(r=>requestAnimationFrame(r));
+  previewPending=false;
+  // build the receipt using the test photo as the session shots
+  const shot=ditherTestPhoto();
+  const saved=state.shots;
+  state.shots = state.photos===4 ? [shot,shot,shot,shot] : [shot];
+  try{
+    const rc=await buildReceiptCanvas();
+    // scale into the small preview canvas
+    const targetW=Math.min(160, rc.width);
+    const scale=targetW/rc.width;
+    cv.width=targetW; cv.height=Math.round(rc.height*scale);
+    const x=cv.getContext('2d');
+    x.imageSmoothingEnabled=true;
+    x.drawImage(rc,0,0,cv.width,cv.height);
+  }catch(e){/* ignore */}
+  state.shots=saved;
+}
+
+$('#ap-photo').addEventListener('change',e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{ adminTestPhoto=img; $('#ap-upload-btn').textContent='Change test photo'; renderAdminPreview(); };
+    img.src=r.result;
+  };
+  r.readAsDataURL(file);
+});
 
 function syncAdmin(){
   syncPhotoSeg();
@@ -1586,7 +1664,7 @@ function syncPhotoSeg(){
   });
 }
 document.querySelectorAll('#seg-photos .seg-btn').forEach(b=>{
-  b.addEventListener('click',()=>{ state.photos=+b.dataset.photos; syncPhotoSeg(); saveState(); });
+  b.addEventListener('click',()=>{ state.photos=+b.dataset.photos; syncPhotoSeg(); saveState(); renderAdminPreview(); });
 });
 function syncShareSeg(){
   document.querySelectorAll('#seg-share .seg-btn').forEach(b=>{
@@ -1611,11 +1689,11 @@ $('#f-gallery-base').addEventListener('input',e=>{ state.galleryBaseUrl=e.target
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 $('#f-count').addEventListener('change',e=>{ state.countdown=+e.target.value; saveState(); });
 $('#f-copies').addEventListener('change',e=>{ state.copies=+e.target.value; saveState(); });
-$('#f-qr-url').addEventListener('input',e=>{ state.qrUrl=e.target.value.trim(); saveState(); });
-$('#f-qr-caption').addEventListener('input',e=>{ state.qrCaption=e.target.value; saveState(); });
-$('#f-bright').addEventListener('input',e=>state.bright=+e.target.value);
-$('#f-contrast').addEventListener('input',e=>state.contrast=+e.target.value);
-$('#f-dither').addEventListener('change',e=>state.dither=e.target.value);
+$('#f-qr-url').addEventListener('input',e=>{ state.qrUrl=e.target.value.trim(); saveState(); renderAdminPreview(); });
+$('#f-qr-caption').addEventListener('input',e=>{ state.qrCaption=e.target.value; saveState(); renderAdminPreview(); });
+$('#f-bright').addEventListener('input',e=>{ state.bright=+e.target.value; saveState(); renderAdminPreview(); });
+$('#f-contrast').addEventListener('input',e=>{ state.contrast=+e.target.value; saveState(); renderAdminPreview(); });
+$('#f-dither').addEventListener('change',e=>{ state.dither=e.target.value; saveState(); renderAdminPreview(); });
 $('#f-print-mode').addEventListener('change',e=>{
   state.printMode=e.target.value;
   if(state.printMode==='webprnt') state.printerPort=80;
@@ -1713,16 +1791,16 @@ function updatePrintModeHelp(){
 $('#f-pin').addEventListener('input',e=>{ const v=e.target.value.replace(/\D/g,''); if(v.length>=4) state.pin=v; });
 
 function setToggle(on){ $('#t-qr').classList.toggle('on',on); $('#t-qr-lbl').textContent=on?'On':'Off'; state.qr=on; }
-$('#t-qr').addEventListener('click',()=>setToggle(!state.qr));
+$('#t-qr').addEventListener('click',()=>{ setToggle(!state.qr); saveState(); renderAdminPreview(); });
 
 $('#f-event-logo').addEventListener('change',e=>{
   const file=e.target.files[0]; if(!file)return;
   const r=new FileReader();
-  r.onload=()=>{ state.eventLogo=r.result; $('#event-logo-preview').src=r.result; $('#brand-div').classList.remove('hide'); saveState(); };
+  r.onload=()=>{ state.eventLogo=r.result; $('#event-logo-preview').src=r.result; $('#brand-div').classList.remove('hide'); saveState(); renderAdminPreview(); };
   r.readAsDataURL(file);
 });
 $('#event-logo-clear').addEventListener('click',()=>{
-  state.eventLogo=null; $('#event-logo-preview').src=''; $('#f-event-logo').value=''; $('#brand-div').classList.add('hide'); saveState();
+  state.eventLogo=null; $('#event-logo-preview').src=''; $('#f-event-logo').value=''; $('#brand-div').classList.add('hide'); saveState(); renderAdminPreview();
 });
 
 function updatePrinterStatus(){
