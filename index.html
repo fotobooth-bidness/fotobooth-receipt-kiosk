@@ -109,9 +109,6 @@
   #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
   #video.thermal-preview{filter:grayscale(1) contrast(1.4) brightness(1.05);}
   .vignette{position:absolute;inset:0;box-shadow:inset 0 0 200px 40px rgba(0,0,0,.7);pointer-events:none;}
-  #crop-guide{position:absolute;inset:0;pointer-events:none;}
-  #crop-guide .cg-dim{position:absolute;background:rgba(0,0,0,.62);transition:all .15s ease;}
-  #crop-guide .cg-frame{position:absolute;border:2px solid rgba(255,255,255,.9);box-shadow:0 0 0 1px rgba(0,0,0,.3);transition:all .15s ease;}
   #capture-exit{position:absolute;top:calc(env(safe-area-inset-top) + 16px);left:16px;width:48px;height:48px;border-radius:50%;
     background:rgba(0,0,0,.45);color:#fff;font-size:22px;line-height:1;display:flex;align-items:center;justify-content:center;
     z-index:60;backdrop-filter:blur(2px);border:1.5px solid rgba(255,255,255,.35);}
@@ -178,14 +175,31 @@
   .receipt .r-strip{display:grid;grid-template-columns:1fr;gap:var(--strip-gap);}
   .receipt .r-strip.grid-4{grid-template-columns:1fr 1fr;}
   .receipt .r-strip img{width:100%;display:block;filter:grayscale(1) contrast(1.1);}
-  .receipt .r-foot{text-align:center;border-top:1px dashed #999;padding-top:12px;margin-top:12px;}
-  .receipt .r-qr{width:64px;height:64px;margin:8px auto 5px;display:block;image-rendering:pixelated;}
-  .receipt .r-qrcap{font-size:10px;letter-spacing:.15em;text-transform:uppercase;text-align:center;margin-bottom:4px;}
-  .receipt .r-qrcap.hidden{display:none;}
+  .receipt .r-foot{position:relative;text-align:center;border-top:1px dashed #999;padding-top:12px;margin-top:12px;}
+  .receipt .r-qr{width:46px;height:46px;margin:8px auto 0;display:block;image-rendering:pixelated;opacity:.9;}
+  .receipt .r-qr.hidden{display:none;}
+  .receipt .r-qrcap{display:none;}
   .receipt .r-eventfoot{max-width:72%;max-height:150px;margin:14px auto 10px;display:block;object-fit:contain;filter:grayscale(1) contrast(1.1);}
   .receipt .r-eventfoot.hidden{display:none;}
   .receipt .r-thanks{font-size:10px;letter-spacing:.15em;text-transform:uppercase;}
   .receipt .r-meta{font-size:9px;color:#666;margin-top:8px;}
+
+  /* ---- reveal stage: receipt prints, holds, then slides aside to show the gallery QR ---- */
+  .reveal-stage{position:relative;display:flex;align-items:center;justify-content:center;gap:0;transition:gap .5s cubic-bezier(.2,.8,.2,1);}
+  .reveal-stage.revealed{gap:clamp(28px,5vw,72px);}
+  .reveal-stage .receipt{transition:transform .5s cubic-bezier(.2,.8,.2,1);}
+  .reveal-stage.revealed .receipt{transform:translateX(-6px) rotate(-1.5deg);}
+  .gallery-panel{width:0;overflow:hidden;opacity:0;transform:translateX(30px) scale(.96);pointer-events:none;
+    transition:opacity .5s ease .12s, transform .5s cubic-bezier(.2,.8,.2,1) .12s, width .5s cubic-bezier(.2,.8,.2,1);
+    display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;}
+  .reveal-stage.revealed .gallery-panel{width:280px;opacity:1;transform:translateX(0) scale(1);pointer-events:auto;}
+  .gallery-panel .gp-title{font-family:'Playfair Display',serif;font-weight:700;font-size:30px;}
+  .gallery-panel .gp-sub{font-size:11px;letter-spacing:.2em;text-transform:uppercase;opacity:.5;margin-top:-8px;}
+  .gallery-panel .gp-qr{width:210px;height:210px;background:#fff;border:1px solid var(--line);border-radius:16px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .gallery-panel .gp-qr img{width:100%;height:100%;image-rendering:pixelated;}
+  .gallery-panel .gp-qr .gp-filler{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+    background:repeating-conic-gradient(#000 0% 25%, #fff 0% 50%) 50%/22px 22px;opacity:.12;}
+  .gallery-panel .gp-note{font-size:11px;opacity:.5;line-height:1.5;max-width:220px;}
 
   .result-actions{display:flex;flex-direction:column;gap:16px;min-width:260px;}
   #share-sheet{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:130;padding:24px;}
@@ -290,13 +304,6 @@
   <div id="cam-wrap">
     <video id="video" autoplay playsinline muted></video>
     <div class="vignette"></div>
-    <div id="crop-guide" aria-hidden="true">
-      <div class="cg-dim cg-top"></div>
-      <div class="cg-dim cg-bottom"></div>
-      <div class="cg-dim cg-left"></div>
-      <div class="cg-dim cg-right"></div>
-      <div class="cg-frame"></div>
-    </div>
   </div>
   <div class="shot-tally" id="tally"></div>
   <div id="countdown"></div>
@@ -314,30 +321,37 @@
 <!-- ================= RESULT ================= -->
 <section id="result" class="screen">
   <div class="result-inner">
-    <div class="receipt" id="receipt">
-      <div class="r-head">
-        <div class="r-lockup" id="rc-lockup">
-          <img class="r-mark" id="rc-mark" src="" alt="fotobooth.">
-          <span class="r-div" id="rc-div">|</span>
-          <img class="r-eventlogo" id="rc-eventlogo" src="" alt="">
+    <div class="reveal-stage" id="reveal-stage">
+      <div class="receipt" id="receipt">
+        <div class="r-head">
+          <div class="r-lockup" id="rc-lockup">
+            <img class="r-mark" id="rc-mark" src="" alt="fotobooth.">
+            <span class="r-div" id="rc-div">|</span>
+            <img class="r-eventlogo" id="rc-eventlogo" src="" alt="">
+          </div>
+        </div>
+        <div class="r-strip" id="rc-strip"></div>
+        <div class="r-foot">
+          <img class="r-eventfoot hidden" id="rc-eventfoot" alt="">
+          <div class="r-thanks">Thanks for popping in</div>
+          <div class="r-meta" id="rc-meta"></div>
+          <img class="r-qr hidden" id="rc-qr" alt="scan">
+          <div class="r-qrcap hidden" id="rc-qrcap"></div>
         </div>
       </div>
-      <div class="r-strip" id="rc-strip"></div>
-      <div class="r-foot">
-        <img class="r-qr hidden" id="rc-qr" alt="scan to download">
-        <div class="r-qrcap hidden" id="rc-qrcap"></div>
-        <img class="r-eventfoot hidden" id="rc-eventfoot" alt="">
-        <div class="r-thanks">Thanks for popping in</div>
-        <div class="r-meta" id="rc-meta"></div>
+      <div class="gallery-panel" id="gallery-panel">
+        <div class="gp-title serif">Your Photos</div>
+        <div class="gp-sub">Scan to download</div>
+        <div class="gp-qr" id="gp-qr">
+          <div class="gp-filler" id="gp-filler"></div>
+          <img id="gp-qr-img" style="display:none;" alt="Scan for your photos">
+        </div>
+        <div class="gp-note" id="gp-note">Digital gallery coming soon — scan here at events once it's live.</div>
       </div>
     </div>
     <div class="result-actions">
       <h2 class="serif">You look great.</h2>
       <p id="result-blurb">Your receipt is printing. Grab your copy, or take the digital version with you.</p>
-      <div id="gallery-qr" style="display:none;">
-        <img id="gallery-qr-img" alt="Scan for your photos">
-        <div class="gallery-qr-cap">Scan for your photos</div>
-      </div>
       <button class="btn btn-primary" id="btn-reprint">Print another copy</button>
       <button class="btn btn-solid" id="btn-share">Get digital copy</button>
       <button class="btn btn-ghost" id="btn-done">I'm done</button>
@@ -490,13 +504,13 @@
       </div>
 
       <div class="field full">
-        <label>Digital copies</label>
+        <label>Share button</label>
         <div class="seg" id="seg-share">
           <button data-share="auto" class="seg-btn">Auto</button>
-          <button data-share="online" class="seg-btn">On</button>
-          <button data-share="offline" class="seg-btn">Off (print only)</button>
+          <button data-share="online" class="seg-btn">Always on</button>
+          <button data-share="offline" class="seg-btn">Off</button>
         </div>
-        <div class="admin-note"><strong>Auto:</strong> shows the "Get digital copy" button only when the tablet has internet. <strong>On:</strong> always shows it. <strong>Off:</strong> hides it — print-only, clean for offline events. This button uses the tablet's own share sheet. For guests to scan a QR and download their own photos, turn on Cloud gallery below.</div>
+        <div class="admin-note">Controls the on-screen <strong>"Get digital copy"</strong> button (which uses the tablet's own share sheet). <strong>Auto:</strong> shows it only when the tablet has internet. <strong>Always on:</strong> always shows it. <strong>Off:</strong> hides it completely — useful once the Cloud gallery QR below is doing the job, or for clean print-only events.</div>
       </div>
 
       <div class="field full">
@@ -659,39 +673,11 @@ async function startCam(){
     stream = await navigator.mediaDevices.getUserMedia(camConstraints());
     const v=$('#video');
     v.srcObject = stream;
-    v.addEventListener('loadedmetadata', positionCropGuide, {once:false});
     return true;
   }catch(e){
     return false;
   }
 }
-
-/* position the crop guide so the bright square exactly matches what grabFrame() keeps */
-function positionCropGuide(){
-  const v=$('#video'), wrap=$('#cam-wrap'), g=$('#crop-guide');
-  if(!v||!wrap||!g) return;
-  const vw=v.videoWidth, vh=v.videoHeight;
-  const W=wrap.clientWidth, H=wrap.clientHeight;
-  if(!vw||!vh||!W||!H) return;
-  // object-fit:cover scale
-  const scale=Math.max(W/vw, H/vh);
-  // captured square is min(vw,vh) in native pixels, centered → screen size:
-  const sq=Math.min(vw,vh)*scale;
-  // clamp so it never exceeds the visible area
-  const side=Math.min(sq, W, H);
-  const left=Math.round((W-side)/2), top=Math.round((H-side)/2);
-  const right=left+side, bottom=top+side;
-  const f=g.querySelector('.cg-frame');
-  f.style.left=left+'px'; f.style.top=top+'px'; f.style.width=side+'px'; f.style.height=side+'px';
-  const dTop=g.querySelector('.cg-top'), dBot=g.querySelector('.cg-bottom'),
-        dL=g.querySelector('.cg-left'), dR=g.querySelector('.cg-right');
-  dTop.style.left='0'; dTop.style.top='0'; dTop.style.width='100%'; dTop.style.height=top+'px';
-  dBot.style.left='0'; dBot.style.top=bottom+'px'; dBot.style.width='100%'; dBot.style.bottom='0';
-  dL.style.left='0'; dL.style.top=top+'px'; dL.style.width=left+'px'; dL.style.height=side+'px';
-  dR.style.left=right+'px'; dR.style.top=top+'px'; dR.style.right='0'; dR.style.height=side+'px';
-}
-window.addEventListener('resize', positionCropGuide);
-window.addEventListener('orientationchange', ()=>setTimeout(positionCropGuide,300));
 
 /* ---------- session flow ---------- */
 async function beginSession(){
@@ -701,7 +687,6 @@ async function beginSession(){
     $('#prompt-band').textContent = 'Camera unavailable — check permissions';
     return;
   }
-  requestAnimationFrame(positionCropGuide);   // ensure guide matches once laid out
   state.shots = [];
   sessionCancelled = false;
   renderTally(0);
@@ -842,9 +827,13 @@ async function finishSession(){
   $('#result-blurb').textContent = enabled
     ? 'Your receipt is printing. Grab your copy, or take the digital version with you.'
     : 'Your receipt is printing — grab your copy!';
+  // reset the reveal so it re-animates each session
+  const stage=$('#reveal-stage');
+  stage.classList.remove('revealed');
   show('result');
   autoPrint();
-  tryShowGalleryQR();   // shows a per-guest QR only if gallery is enabled + online (else no-op)
+  // receipt "prints" (rises in), holds briefly, then slides aside to reveal the gallery QR
+  setTimeout(()=>{ stage.classList.add('revealed'); tryShowGalleryQR(); }, 1400);
   startAutoReturn();
 }
 
@@ -1135,15 +1124,15 @@ async function buildReceiptCanvas(){
 
   blocks.push({type:'rule'}); y+=16;
 
-  // ---- QR slot: QR code when on; event art (larger) when off ----
-  if(state.qr){
-    const q = await loadImg(makeQR(state.qrUrl));
-    const qs = Math.round(innerW*0.32);
-    blocks.push({type:'draw',h:qs,fn:(yy)=>{ ctx.imageSmoothingEnabled=false; ctx.drawImage(q,pad+(innerW-qs)/2,yy,qs,qs); }});
-    y+=qs+8;
-    if(state.qrCaption){ blocks.push({type:'text',text:state.qrCaption,font:'16px monospace'}); y+=24; }
+  // ---- QR: small, tucked bottom-right beside the footer (it links to the site,
+  //      kept discreet so it isn't mistaken for a photo-download code) ----
+  const showCornerQR = state.qr;
+  let cornerQR=null, cornerQRcap='';
+  if(showCornerQR){
+    cornerQR = await loadImg(makeQR(state.qrUrl));
+    cornerQRcap = state.qrCaption||'';
   }else if(evLogo){
-    // QR off: event/collaborator PNG takes the QR's place, sized to fill it.
+    // QR off: event/collaborator PNG takes a centered slot as before.
     const maxW = Math.round(innerW*0.72);
     const maxH = 150;
     let ew = evLogo.width, eh = evLogo.height;
@@ -1153,8 +1142,27 @@ async function buildReceiptCanvas(){
     y+=eh+12;
     blocks.push({type:'rule'}); y+=16;
   }
-  blocks.push({type:'text',text:'THANKS FOR POPPING IN',font:'18px monospace'}); y+=28;
-  blocks.push({type:'text',text:new Date().toLocaleString()+'  #'+sessionId(),font:'14px monospace'}); y+=22;
+
+  // Footer: centered thanks + timestamp, then a small centered QR below.
+  if(showCornerQR){
+    blocks.push({type:'text',text:'THANKS FOR POPPING IN',font:'18px monospace'}); y+=28;
+    blocks.push({type:'text',text:new Date().toLocaleString()+'  #'+sessionId(),font:'14px monospace'}); y+=24;
+    const qs = Math.round(innerW*0.20);   // small
+    const capH = cornerQRcap ? 16 : 0;
+    blocks.push({type:'draw',h:qs+capH,fn:(yy)=>{
+      ctx.imageSmoothingEnabled=false;
+      ctx.drawImage(cornerQR, pad+(innerW-qs)/2, yy, qs, qs);   // centered
+      if(cornerQRcap){
+        ctx.fillStyle='#333'; ctx.font='10px monospace'; ctx.textAlign='center'; ctx.textBaseline='top';
+        ctx.fillText(cornerQRcap, W/2, yy+qs+3);
+        ctx.textAlign='left';
+      }
+    }});
+    y+=qs+capH+12;
+  }else{
+    blocks.push({type:'text',text:'THANKS FOR POPPING IN',font:'18px monospace'}); y+=28;
+    blocks.push({type:'text',text:new Date().toLocaleString()+'  #'+sessionId(),font:'14px monospace'}); y+=22;
+  }
   y+=pad;
 
   // ---- render ----
@@ -1264,7 +1272,7 @@ function tickReturn(){
 function endSession(){
   clearTimeout(returnTimer);
   _sid=null; state.shots=[];
-  const gq=$('#gallery-qr'); if(gq) gq.style.display='none';
+  const stage=$('#reveal-stage'); if(stage) stage.classList.remove('revealed');
   show('attract');
 }
 
@@ -1316,12 +1324,17 @@ async function uploadSession(){
 
 // show or hide the per-guest gallery QR on the result screen
 async function tryShowGalleryQR(){
-  const box=$('#gallery-qr'), img=$('#gallery-qr-img');
-  box.style.display='none';
-  const url = await uploadSession();
-  if(!url) return;                 // inactive or failed → stays hidden, no effect
+  const img=$('#gp-qr-img'), filler=$('#gp-filler'), note=$('#gp-note');
+  // default: filler square (no cloud yet)
+  img.style.display='none';
+  filler.style.display='';
+  note.textContent='Digital gallery coming soon — scan here at events once it\u2019s live.';
+  const url = await uploadSession();       // null unless gallery enabled + online + upload ok
+  if(!url) return;
   img.src = makeQR(url);
-  box.style.display='flex';
+  img.style.display='';
+  filler.style.display='none';
+  note.textContent='Scan with your phone camera to view and download your photos.';
 }
 
 // Whether sharing is active right now, based on the admin mode + live connectivity.

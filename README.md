@@ -4,7 +4,8 @@ A single-file browser kiosk for a receipt-style photo booth. Runs on an **Androi
 
 ## Files
 
-- `index.html` — the entire kiosk app (nothing else required to run it)
+- `index.html` — the entire kiosk app (the Playfair font is embedded, so it needs no internet for fonts)
+- `sw.js` — the service worker that caches the app on the tablet for offline use (upload alongside `index.html`)
 - `fotobooth-relay.js` — optional Node relay, only for the LAN/relay print mode (not needed for USB)
 
 ## Why Android (not iPad)
@@ -16,10 +17,21 @@ Silent USB printing from a browser needs the **WebUSB API**, which Android Chrom
 WebUSB only works over **https** (or localhost), so the page can't be opened off the tablet's file system — host it:
 
 1. Create a new GitHub repo (e.g. `fotobooth-kiosk`).
-2. Upload `index.html` to the repo root.
+2. Upload **both `index.html` and `sw.js`** to the repo root (the service worker must sit next to the app).
 3. Repo **Settings → Pages → Source: `main` branch, `/root`** → Save.
 4. Wait ~1 minute; your kiosk is live at `https://<username>.github.io/fotobooth-kiosk/`.
 5. (Optional) Add a `kiosk.fotobooth.biz` subdomain via a CNAME, same as your main site.
+
+## Offline use (no network at the venue)
+
+The booth is built to run with **no internet connection**:
+
+- The Playfair Display font is embedded directly in `index.html`, so the design looks right offline (the utility text falls back to the system monospace).
+- `sw.js` caches the whole app on the tablet the first time it loads online. After that it opens fully offline — even if you reload or relaunch with no signal.
+
+**One-time setup while you still have internet:** open the kiosk URL on the tablet once, let it load completely, then open it a second time (or reload) so the service worker finishes caching. After that, airplane mode / dead venue Wi-Fi is fine — the app loads and runs from the tablet. Everything (photos, printing, settings) already works without a connection.
+
+**When you update the app:** upload the new `index.html`, then on the tablet reload **twice** while online — once to fetch the new version, once for the service worker to cache it. If you ever see a stale version, that second reload (or clearing the site data in Chrome) fixes it.
 
 ## Hardware setup
 
@@ -90,6 +102,16 @@ A toggle plus two fields that control the QR block in the footer.
 - **Off** — no QR. The event PNG moves down into the footer, printed larger, and the header shows the wordmark alone.
 - **QR link** — where the QR sends people. The same on every receipt (your website or socials). No upload or internet needed; change it anytime.
 - **QR caption** — the small text printed under the QR (default `MADE BY fotobooth.`). Leave blank for none.
+
+### Share button
+Controls the on-screen "Get digital copy" button on the result screen.
+- **Auto** — shows the button only when the tablet has an internet connection; hides it when offline. Good default.
+- **Always on** — always shows the button.
+- **Off** — hides it entirely. Useful once the Cloud gallery QR is doing the job of digital delivery, or for a clean print-only booth.
+
+When a guest taps **Get digital copy**, they choose: **everything** (the full receipt design plus the photos), **just the receipt design**, or **just the photo(s)**. For a 4-photo session the photos come as both a 2×2 grid and the four separate images. The booth then opens the tablet's native share sheet (or downloads the files if sharing isn't available).
+
+**Share button vs. Cloud gallery QR:** these are two separate ways to hand over digital copies. The **share button** works from the tablet's own share sheet (sends to apps/accounts on the tablet). The **Cloud gallery** (below) is the scan-your-own-QR path that delivers straight to any guest's phone. Once the gallery is running, you'll likely set the share button to **Off** and let the QR do the work.
 
 ### Dithering style
 How photos are converted to black-and-white for thermal printing. Each handles the "no grey" limitation differently:
