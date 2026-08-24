@@ -104,7 +104,7 @@
   #attract .event-label{position:absolute;bottom:40px;font-size:12px;letter-spacing:.3em;text-transform:uppercase;opacity:.45;color:var(--black);}
 
   /* ============================ LIVE / CAPTURE ============================ */
-  #capture{background:#000;justify-content:center;}
+  #capture{background:var(--white);justify-content:center;}
   /* preview is a centered SQUARE so guests see exactly what prints (the capture
      is a centered square crop). No more full-screen preview that hides the sides. */
   #cam-wrap{position:relative;width:min(96vw,96vh);height:min(96vw,96vh);overflow:hidden;background:#000;border-radius:8px;}
@@ -112,14 +112,14 @@
   #video.thermal-preview{filter:grayscale(1) contrast(1.4) brightness(1.05);}
   .vignette{position:absolute;inset:0;box-shadow:inset 0 0 200px 40px rgba(0,0,0,.7);pointer-events:none;}
   #capture-exit{position:absolute;top:calc(env(safe-area-inset-top) + 16px);left:16px;width:48px;height:48px;border-radius:50%;
-    background:rgba(0,0,0,.45);color:#fff;font-size:22px;line-height:1;display:flex;align-items:center;justify-content:center;
-    z-index:60;backdrop-filter:blur(2px);border:1.5px solid rgba(255,255,255,.35);}
-  #capture-exit:active{transform:scale(.92);background:rgba(0,0,0,.6);}
+    background:var(--black);color:#fff;font-size:22px;line-height:1;display:flex;align-items:center;justify-content:center;
+    z-index:60;}
+  #capture-exit:active{transform:scale(.92);opacity:.8;}
 
   #countdown{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     font-family:'Playfair Display',serif;font-weight:900;font-size:min(46vh,46vw);color:#fff;
-    text-shadow:0 8px 40px rgba(0,0,0,.6);pointer-events:none;
+    text-shadow:0 4px 30px rgba(0,0,0,.7);pointer-events:none;
   }
   #countdown .num{animation:pop .9s ease-out;}
   #countdown .ready{font-size:clamp(40px,9vw,110px);animation:readyIn .5s ease-out;}
@@ -131,10 +131,10 @@
   @keyframes flash{0%{opacity:.95}100%{opacity:0}}
 
   .shot-tally{position:absolute;top:calc(env(safe-area-inset-top) + 26px);left:0;right:0;display:flex;gap:12px;justify-content:center;pointer-events:none;}
-  .shot-tally .pip{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.6);}
-  .shot-tally .pip.done{background:#fff;border-color:#fff;}
+  .shot-tally .pip{width:14px;height:14px;border-radius:50%;border:2px solid rgba(0,0,0,.4);}
+  .shot-tally .pip.done{background:var(--black);border-color:var(--black);}
 
-  .prompt-band{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 40px);left:0;right:0;text-align:center;font-size:clamp(16px,2.4vw,26px);letter-spacing:.06em;color:#fff;text-shadow:0 2px 12px #000;}
+  .prompt-band{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 40px);left:0;right:0;text-align:center;font-size:clamp(16px,2.4vw,26px);letter-spacing:.06em;color:var(--black);}
 
   /* ============================ PROCESSING ============================ */
   #processing{background:var(--white);gap:26px;}
