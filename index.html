@@ -186,33 +186,33 @@
   .receipt .r-thanks{font-size:10px;letter-spacing:.15em;text-transform:uppercase;}
   .receipt .r-meta{font-size:9px;color:#666;margin-top:8px;}
 
-  /* ---- reveal stage: receipt prints, holds, then slides aside to show the gallery QR ---- */
-  .reveal-stage{position:relative;display:flex;align-items:center;justify-content:center;gap:0;transition:gap .5s cubic-bezier(.2,.8,.2,1);}
-  .reveal-stage.revealed{gap:clamp(28px,5vw,72px);}
-  .reveal-stage .receipt{transition:transform .5s cubic-bezier(.2,.8,.2,1);}
-  .reveal-stage.revealed .receipt{transform:translateX(-6px) rotate(-1.5deg);}
-  .gallery-panel{width:0;overflow:hidden;opacity:0;transform:translateX(30px) scale(.96);pointer-events:none;
-    transition:opacity .5s ease .12s, transform .5s cubic-bezier(.2,.8,.2,1) .12s, width .5s cubic-bezier(.2,.8,.2,1);
-    display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;}
-  .reveal-stage.revealed .gallery-panel{width:280px;opacity:1;transform:translateX(0) scale(1);pointer-events:auto;}
-  .gallery-panel .gp-title{font-family:'Playfair Display',serif;font-weight:700;font-size:30px;}
-  .gallery-panel .gp-sub{font-size:11px;letter-spacing:.2em;text-transform:uppercase;opacity:.5;margin-top:-8px;}
-  .gallery-panel .gp-qr{width:210px;height:210px;background:#fff;border:1px solid var(--line);border-radius:16px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  /* ---- result left column: intro text fades out, QR + buttons fade in ---- */
+  .result-left{position:relative;min-width:280px;width:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+  .result-intro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    opacity:1;transition:opacity .5s ease;}
+  .result-intro.gone{opacity:0;pointer-events:none;}
+  .result-intro h2{font-family:'Playfair Display',serif;font-weight:600;font-size:34px;margin-bottom:10px;}
+  .result-intro p{font-size:14px;opacity:.7;line-height:1.6;max-width:240px;}
+  .result-reveal{display:flex;flex-direction:column;align-items:center;gap:18px;width:100%;
+    opacity:0;transform:translateY(10px);transition:opacity .55s ease,transform .55s cubic-bezier(.2,.8,.2,1);pointer-events:none;}
+  .result-reveal.shown{opacity:1;transform:translateY(0);pointer-events:auto;}
+
+  .gallery-panel{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;}
+  .gallery-panel .gp-title{font-family:'Playfair Display',serif;font-weight:700;font-size:28px;}
+  .gallery-panel .gp-sub{font-size:11px;letter-spacing:.2em;text-transform:uppercase;opacity:.5;margin-top:-6px;}
+  .gallery-panel .gp-qr{width:190px;height:190px;background:#fff;border:1px solid var(--line);border-radius:16px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
   .gallery-panel .gp-qr img{width:100%;height:100%;image-rendering:pixelated;}
   .gallery-panel .gp-qr .gp-filler{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
     background:repeating-conic-gradient(#000 0% 25%, #fff 0% 50%) 50%/22px 22px;opacity:.12;}
   .gallery-panel .gp-note{font-size:11px;opacity:.5;line-height:1.5;max-width:220px;}
 
-  .result-actions{display:flex;flex-direction:column;gap:16px;min-width:260px;}
+  .reveal-actions{display:flex;flex-direction:column;gap:12px;width:100%;margin-top:4px;}
+
   #share-sheet{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:130;padding:24px;}
   #share-sheet.active{display:flex;}
   #share-sheet .share-card{background:var(--white);color:var(--black);border-radius:20px;padding:30px 26px;width:100%;max-width:380px;display:flex;flex-direction:column;gap:14px;box-shadow:0 30px 80px rgba(0,0,0,.4);}
   #share-sheet .share-card h3{font-size:26px;margin-bottom:2px;}
   #share-sheet .share-card p{font-size:13px;opacity:.65;margin-bottom:8px;}
-  #gallery-qr{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px;background:#fff;border:1px solid var(--line);border-radius:14px;}
-  #gallery-qr img{width:150px;height:150px;image-rendering:pixelated;}
-  #gallery-qr .gallery-qr-cap{font-size:11px;letter-spacing:.16em;text-transform:uppercase;opacity:.6;}  .result-actions h2{font-family:'Playfair Display',serif;font-weight:600;font-size:30px;margin-bottom:6px;}
-  .result-actions p{font-size:12px;opacity:.7;margin-bottom:10px;line-height:1.6;}
   .btn{
     padding:18px 26px;border-radius:14px;font-size:15px;letter-spacing:.05em;
     display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .12s,background .2s;
@@ -230,14 +230,6 @@
   #admin.active{display:flex;}
   .admin-bar{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--line);}
   .admin-bar h1{font-family:'Playfair Display',serif;font-weight:900;font-size:24px;}
-  .admin-preview{border-bottom:1px solid var(--line);background:#fafafa;padding:16px 24px;flex-shrink:0;}
-  .admin-preview .ap-inner{max-width:760px;margin:0 auto;display:flex;gap:20px;align-items:center;}
-  .admin-preview #ap-canvas{width:150px;height:auto;min-height:80px;background:#fff;border:1px solid #e2e2e2;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.08);flex-shrink:0;}
-  .admin-preview .ap-side{flex:1;min-width:0;}
-  .admin-preview .ap-label{font-size:11px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:6px;}
-  .admin-preview .ap-note{font-size:13px;opacity:.8;margin-bottom:10px;line-height:1.4;}
-  .admin-preview .ap-upload span{display:inline-block;background:var(--black);color:#fff;font-size:12px;letter-spacing:.05em;padding:8px 16px;border-radius:8px;cursor:pointer;}
-  .admin-preview .ap-hint{font-size:10px;opacity:.45;margin-top:8px;line-height:1.4;}
   .admin-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:24px;}
   .admin-grid{max-width:760px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:18px;}
   .field{background:#fafafa;border:1px solid var(--line);border-radius:14px;padding:16px;}
@@ -331,41 +323,45 @@
 <!-- ================= RESULT ================= -->
 <section id="result" class="screen">
   <div class="result-inner">
-    <div class="reveal-stage" id="reveal-stage">
-      <div class="receipt" id="receipt">
-        <div class="r-head">
-          <div class="r-lockup" id="rc-lockup">
-            <img class="r-mark" id="rc-mark" src="" alt="fotobooth.">
-            <span class="r-div" id="rc-div">|</span>
-            <img class="r-eventlogo" id="rc-eventlogo" src="" alt="">
-          </div>
-        </div>
-        <div class="r-strip" id="rc-strip"></div>
-        <div class="r-foot">
-          <img class="r-eventfoot hidden" id="rc-eventfoot" alt="">
-          <div class="r-thanks">Thanks for popping in</div>
-          <div class="r-meta" id="rc-meta"></div>
-          <img class="r-qr hidden" id="rc-qr" alt="scan">
-          <div class="r-qrcap hidden" id="rc-qrcap"></div>
-        </div>
+    <div class="result-left">
+      <div class="result-intro" id="result-intro">
+        <h2 class="serif">You look great.</h2>
+        <p>Your receipt is printing — grab your copy.</p>
       </div>
-      <div class="gallery-panel" id="gallery-panel">
-        <div class="gp-title serif">Your Photos</div>
-        <div class="gp-sub">Scan to download</div>
-        <div class="gp-qr" id="gp-qr">
-          <div class="gp-filler" id="gp-filler"></div>
-          <img id="gp-qr-img" style="display:none;" alt="Scan for your photos">
+      <div class="result-reveal" id="result-reveal">
+        <div class="gallery-panel" id="gallery-panel">
+          <div class="gp-title serif">Your Photos</div>
+          <div class="gp-sub">Scan to download</div>
+          <div class="gp-qr" id="gp-qr">
+            <div class="gp-filler" id="gp-filler"></div>
+            <img id="gp-qr-img" style="display:none;" alt="Scan for your photos">
+          </div>
+          <div class="gp-note" id="gp-note">Digital gallery coming soon — scan here at events once it's live.</div>
         </div>
-        <div class="gp-note" id="gp-note">Digital gallery coming soon — scan here at events once it's live.</div>
+        <div class="reveal-actions" id="reveal-actions">
+          <button class="btn btn-primary" id="btn-reprint">Print another copy</button>
+          <button class="btn btn-solid" id="btn-share">Get digital copy</button>
+          <button class="btn btn-ghost" id="btn-done">Finish</button>
+        </div>
+        <div class="auto-return" id="auto-return"></div>
       </div>
     </div>
-    <div class="result-actions">
-      <h2 class="serif">You look great.</h2>
-      <p id="result-blurb">Your receipt is printing. Grab your copy, or take the digital version with you.</p>
-      <button class="btn btn-primary" id="btn-reprint">Print another copy</button>
-      <button class="btn btn-solid" id="btn-share">Get digital copy</button>
-      <button class="btn btn-ghost" id="btn-done">Finish</button>
-      <div class="auto-return" id="auto-return"></div>
+    <div class="receipt" id="receipt">
+      <div class="r-head">
+        <div class="r-lockup" id="rc-lockup">
+          <img class="r-mark" id="rc-mark" src="" alt="fotobooth.">
+          <span class="r-div" id="rc-div">|</span>
+          <img class="r-eventlogo" id="rc-eventlogo" src="" alt="">
+        </div>
+      </div>
+      <div class="r-strip" id="rc-strip"></div>
+      <div class="r-foot">
+        <img class="r-eventfoot hidden" id="rc-eventfoot" alt="">
+        <div class="r-thanks">Thanks for popping in</div>
+        <div class="r-meta" id="rc-meta"></div>
+        <img class="r-qr hidden" id="rc-qr" alt="scan">
+        <div class="r-qrcap hidden" id="rc-qrcap"></div>
+      </div>
     </div>
   </div>
   <div id="share-sheet">
@@ -397,16 +393,6 @@
   <div class="admin-bar">
     <h1 class="brand">Admin</h1>
     <button class="btn btn-primary" id="admin-close" style="padding:12px 26px;">Done</button>
-  </div>
-  <div class="admin-preview" id="admin-preview">
-    <div class="ap-inner">
-      <canvas id="ap-canvas"></canvas>
-      <div class="ap-side">
-        <div class="ap-label">Live preview</div>
-        <div class="ap-note">Shows a sample receipt with your current settings. Updates as you change brightness, contrast, dithering, photos, logo, and QR.</div>
-        <div class="ap-hint">Approximate — the printed result is the final word, especially for brightness &amp; contrast.</div>
-      </div>
-    </div>
   </div>
   <div class="admin-scroll">
     <div class="admin-grid">
@@ -862,16 +848,18 @@ async function finishSession(){
   // show or hide the digital-copy button based on the current share mode
   const enabled=sharingEnabled();
   $('#btn-share').style.display = enabled ? '' : 'none';
-  $('#result-blurb').textContent = enabled
-    ? 'Your receipt is printing. Grab your copy, or take the digital version with you.'
-    : 'Your receipt is printing — grab your copy!';
-  // reset the reveal so it re-animates each session
-  const stage=$('#reveal-stage');
-  stage.classList.remove('revealed');
+  // reset the sequence so it re-animates each session
+  const intro=$('#result-intro'), reveal=$('#result-reveal');
+  intro.classList.remove('gone');
+  reveal.classList.remove('shown');
   show('result');
   autoPrint();
-  // receipt "prints" (rises in), holds briefly, then slides aside to reveal the gallery QR
-  setTimeout(()=>{ stage.classList.add('revealed'); tryShowGalleryQR(); }, 1400);
+  // hold the "You look great" intro for ~1s, then fade it out and fade in the QR + buttons
+  setTimeout(()=>{
+    intro.classList.add('gone');
+    reveal.classList.add('shown');
+    tryShowGalleryQR();
+  }, 1000);
   startAutoReturn();
 }
 
@@ -1310,7 +1298,9 @@ function tickReturn(){
 function endSession(){
   clearTimeout(returnTimer);
   _sid=null; state.shots=[];
-  const stage=$('#reveal-stage'); if(stage) stage.classList.remove('revealed');
+  const intro=$('#result-intro'), reveal=$('#result-reveal');
+  if(intro) intro.classList.remove('gone');
+  if(reveal) reveal.classList.remove('shown');
   show('attract');
 }
 
@@ -1540,60 +1530,8 @@ function renderPinDots(){
 })();
 
 /* ---------- admin: panel ---------- */
-function openAdmin(){ syncAdmin(); listCameras(); $('#admin').classList.add('active'); renderAdminPreview(); }
+function openAdmin(){ syncAdmin(); listCameras(); $('#admin').classList.add('active'); }
 $('#admin-close').addEventListener('click', ()=>{ stopCamTest(); $('#admin').classList.remove('active'); refreshAttract(); saveState(); });
-
-/* ---------- admin live preview ---------- */
-const SAMPLE_PHOTO='data:image/jpeg;base64,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6uW3SSHJx0UdgPYVWoopiCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAqa0uZrO5jubd9ksbblP8AntUNFAHrmiapFq+npcxfK33ZE7o3cf1HtWnDE0rYHCjqa8v8G6sNN1ZI53ItbkhJOeFPZvw/ka9hVQg2gYA7UhiIoRQqjAFLRRQAUUUUAFFFFABRRRQAUUUUAFFFFAGV4p1T+yNDubtCBLjZF/vtwPy5P4V4qSSckkk9Se9d18U77ddWWnqxxGhmce54H6A/nXCU0IKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK9j8FaqdV0CB5W3TwfuZT6kdD+IxXjldn8ML7ydYnsmYhbmLco/wBpef5E0Aem0UUUhhRRRQAUUUUAFFFFABRRRQAUUUoOCCeg5oA8Z8aXJuvE+oPk4STylyMYCjH8waxKmvJRNeXEoJIeV2BbrgkmoaYgooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigArS8OXRste0+4BICzqGwM8E4P6Gs2lDbSGBIxzkUAfQBGCR6UlNhkEsMci52ugYZ64IzTqQwooooAKKKKAP/Z';
-let adminTestPhoto=null;   // the sample photo Image, loaded once
-
-// load the built-in sample once
-(function loadSample(){
-  const img=new Image();
-  img.onload=()=>{ adminTestPhoto=img; };
-  img.src=SAMPLE_PHOTO;
-})();
-
-// dither the sample photo into a square dataURL using current bright/contrast/dither
-function ditherTestPhoto(){
-  if(!adminTestPhoto) return null;
-  const size=600;
-  const c=document.createElement('canvas'); c.width=size; c.height=size;
-  const ctx=c.getContext('2d');
-  const iw=adminTestPhoto.width, ih=adminTestPhoto.height;
-  const s=Math.min(iw,ih), sx=(iw-s)/2, sy=(ih-s)/2;
-  ctx.drawImage(adminTestPhoto, sx,sy,s,s, 0,0,size,size);
-  ditherCanvas(ctx,size,size);   // uses live state.bright / state.contrast / state.dither
-  return c.toDataURL('image/png');
-}
-
-let previewPending=false;
-async function renderAdminPreview(){
-  const cv=$('#ap-canvas');
-  if(!adminTestPhoto){
-    // sample not loaded yet — try again shortly
-    setTimeout(renderAdminPreview, 120);
-    return;
-  }
-  if(previewPending) return;    // coalesce rapid slider changes
-  previewPending=true;
-  await new Promise(r=>requestAnimationFrame(r));
-  previewPending=false;
-  // build the receipt using the sample photo as the session shots
-  const shot=ditherTestPhoto();
-  const saved=state.shots;
-  state.shots = state.photos===4 ? [shot,shot,shot,shot] : [shot];
-  try{
-    const rc=await buildReceiptCanvas();
-    const targetW=Math.min(300, rc.width);
-    const scale=targetW/rc.width;
-    cv.width=targetW; cv.height=Math.round(rc.height*scale);
-    const x=cv.getContext('2d');
-    x.imageSmoothingEnabled=true;
-    x.drawImage(rc,0,0,cv.width,cv.height);
-  }catch(e){/* ignore */}
-  state.shots=saved;
-}
 
 function syncAdmin(){
   syncPhotoSeg();
@@ -1656,7 +1594,7 @@ function syncPhotoSeg(){
   });
 }
 document.querySelectorAll('#seg-photos .seg-btn').forEach(b=>{
-  b.addEventListener('click',()=>{ state.photos=+b.dataset.photos; syncPhotoSeg(); saveState(); renderAdminPreview(); });
+  b.addEventListener('click',()=>{ state.photos=+b.dataset.photos; syncPhotoSeg(); saveState(); });
 });
 function syncShareSeg(){
   document.querySelectorAll('#seg-share .seg-btn').forEach(b=>{
@@ -1681,11 +1619,11 @@ $('#f-gallery-base').addEventListener('input',e=>{ state.galleryBaseUrl=e.target
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 $('#f-count').addEventListener('change',e=>{ state.countdown=+e.target.value; saveState(); });
 $('#f-copies').addEventListener('change',e=>{ state.copies=+e.target.value; saveState(); });
-$('#f-qr-url').addEventListener('input',e=>{ state.qrUrl=e.target.value.trim(); saveState(); renderAdminPreview(); });
-$('#f-qr-caption').addEventListener('input',e=>{ state.qrCaption=e.target.value; saveState(); renderAdminPreview(); });
-$('#f-bright').addEventListener('input',e=>{ state.bright=+e.target.value; saveState(); renderAdminPreview(); });
-$('#f-contrast').addEventListener('input',e=>{ state.contrast=+e.target.value; saveState(); renderAdminPreview(); });
-$('#f-dither').addEventListener('change',e=>{ state.dither=e.target.value; saveState(); renderAdminPreview(); });
+$('#f-qr-url').addEventListener('input',e=>{ state.qrUrl=e.target.value.trim(); saveState(); });
+$('#f-qr-caption').addEventListener('input',e=>{ state.qrCaption=e.target.value; saveState(); });
+$('#f-bright').addEventListener('input',e=>{ state.bright=+e.target.value; saveState(); });
+$('#f-contrast').addEventListener('input',e=>{ state.contrast=+e.target.value; saveState(); });
+$('#f-dither').addEventListener('change',e=>{ state.dither=e.target.value; saveState(); });
 $('#f-print-mode').addEventListener('change',e=>{
   state.printMode=e.target.value;
   if(state.printMode==='webprnt') state.printerPort=80;
@@ -1783,16 +1721,16 @@ function updatePrintModeHelp(){
 $('#f-pin').addEventListener('input',e=>{ const v=e.target.value.replace(/\D/g,''); if(v.length>=4) state.pin=v; });
 
 function setToggle(on){ $('#t-qr').classList.toggle('on',on); $('#t-qr-lbl').textContent=on?'On':'Off'; state.qr=on; }
-$('#t-qr').addEventListener('click',()=>{ setToggle(!state.qr); saveState(); renderAdminPreview(); });
+$('#t-qr').addEventListener('click',()=>{ setToggle(!state.qr); saveState(); });
 
 $('#f-event-logo').addEventListener('change',e=>{
   const file=e.target.files[0]; if(!file)return;
   const r=new FileReader();
-  r.onload=()=>{ state.eventLogo=r.result; $('#event-logo-preview').src=r.result; $('#brand-div').classList.remove('hide'); saveState(); renderAdminPreview(); };
+  r.onload=()=>{ state.eventLogo=r.result; $('#event-logo-preview').src=r.result; $('#brand-div').classList.remove('hide'); saveState(); };
   r.readAsDataURL(file);
 });
 $('#event-logo-clear').addEventListener('click',()=>{
-  state.eventLogo=null; $('#event-logo-preview').src=''; $('#f-event-logo').value=''; $('#brand-div').classList.add('hide'); saveState(); renderAdminPreview();
+  state.eventLogo=null; $('#event-logo-preview').src=''; $('#f-event-logo').value=''; $('#brand-div').classList.add('hide'); saveState();
 });
 
 function updatePrinterStatus(){
