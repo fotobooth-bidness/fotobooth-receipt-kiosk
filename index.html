@@ -232,7 +232,7 @@
   .admin-bar h1{font-family:'Playfair Display',serif;font-weight:900;font-size:24px;}
   .admin-preview{border-bottom:1px solid var(--line);background:#fafafa;padding:16px 24px;flex-shrink:0;}
   .admin-preview .ap-inner{max-width:760px;margin:0 auto;display:flex;gap:20px;align-items:center;}
-  .admin-preview #ap-canvas{width:120px;height:auto;background:#fff;border:1px solid #e2e2e2;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.08);flex-shrink:0;}
+  .admin-preview #ap-canvas{width:150px;height:auto;min-height:80px;background:#fff;border:1px solid #e2e2e2;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.08);flex-shrink:0;}
   .admin-preview .ap-side{flex:1;min-width:0;}
   .admin-preview .ap-label{font-size:11px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:6px;}
   .admin-preview .ap-note{font-size:13px;opacity:.8;margin-bottom:10px;line-height:1.4;}
@@ -403,11 +403,7 @@
       <canvas id="ap-canvas"></canvas>
       <div class="ap-side">
         <div class="ap-label">Live preview</div>
-        <div class="ap-note" id="ap-note">Upload a test photo to preview your receipt with a real face.</div>
-        <label class="ap-upload">
-          <input type="file" id="ap-photo" accept="image/*" hidden>
-          <span id="ap-upload-btn">Upload test photo</span>
-        </label>
+        <div class="ap-note">Shows a sample receipt with your current settings. Updates as you change brightness, contrast, dithering, photos, logo, and QR.</div>
         <div class="ap-hint">Approximate — the printed result is the final word, especially for brightness &amp; contrast.</div>
       </div>
     </div>
@@ -1548,9 +1544,17 @@ function openAdmin(){ syncAdmin(); listCameras(); $('#admin').classList.add('act
 $('#admin-close').addEventListener('click', ()=>{ stopCamTest(); $('#admin').classList.remove('active'); refreshAttract(); saveState(); });
 
 /* ---------- admin live preview ---------- */
-let adminTestPhoto=null;   // raw uploaded test photo (Image), or null
+const SAMPLE_PHOTO='data:image/jpeg;base64,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6uW3SSHJx0UdgPYVWoopiCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAqa0uZrO5jubd9ksbblP8AntUNFAHrmiapFq+npcxfK33ZE7o3cf1HtWnDE0rYHCjqa8v8G6sNN1ZI53ItbkhJOeFPZvw/ka9hVQg2gYA7UhiIoRQqjAFLRRQAUUUUAFFFFABRRRQAUUUUAFFFFAGV4p1T+yNDubtCBLjZF/vtwPy5P4V4qSSckkk9Se9d18U77ddWWnqxxGhmce54H6A/nXCU0IKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK9j8FaqdV0CB5W3TwfuZT6kdD+IxXjldn8ML7ydYnsmYhbmLco/wBpef5E0Aem0UUUhhRRRQAUUUUAFFFFABRRRQAUUUoOCCeg5oA8Z8aXJuvE+oPk4STylyMYCjH8waxKmvJRNeXEoJIeV2BbrgkmoaYgooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigArS8OXRste0+4BICzqGwM8E4P6Gs2lDbSGBIxzkUAfQBGCR6UlNhkEsMci52ugYZ64IzTqQwooooAKKKKAP/Z';
+let adminTestPhoto=null;   // the sample photo Image, loaded once
 
-// dither the test photo into a square dataURL using current bright/contrast/dither
+// load the built-in sample once
+(function loadSample(){
+  const img=new Image();
+  img.onload=()=>{ adminTestPhoto=img; };
+  img.src=SAMPLE_PHOTO;
+})();
+
+// dither the sample photo into a square dataURL using current bright/contrast/dither
 function ditherTestPhoto(){
   if(!adminTestPhoto) return null;
   const size=600;
@@ -1565,24 +1569,23 @@ function ditherTestPhoto(){
 
 let previewPending=false;
 async function renderAdminPreview(){
-  const note=$('#ap-note'), cv=$('#ap-canvas');
+  const cv=$('#ap-canvas');
   if(!adminTestPhoto){
-    note.style.display=''; cv.style.display='none';
+    // sample not loaded yet — try again shortly
+    setTimeout(renderAdminPreview, 120);
     return;
   }
-  note.style.display='none'; cv.style.display='';
   if(previewPending) return;    // coalesce rapid slider changes
   previewPending=true;
   await new Promise(r=>requestAnimationFrame(r));
   previewPending=false;
-  // build the receipt using the test photo as the session shots
+  // build the receipt using the sample photo as the session shots
   const shot=ditherTestPhoto();
   const saved=state.shots;
   state.shots = state.photos===4 ? [shot,shot,shot,shot] : [shot];
   try{
     const rc=await buildReceiptCanvas();
-    // scale into the small preview canvas
-    const targetW=Math.min(160, rc.width);
+    const targetW=Math.min(300, rc.width);
     const scale=targetW/rc.width;
     cv.width=targetW; cv.height=Math.round(rc.height*scale);
     const x=cv.getContext('2d');
@@ -1591,17 +1594,6 @@ async function renderAdminPreview(){
   }catch(e){/* ignore */}
   state.shots=saved;
 }
-
-$('#ap-photo').addEventListener('change',e=>{
-  const file=e.target.files[0]; if(!file) return;
-  const r=new FileReader();
-  r.onload=()=>{
-    const img=new Image();
-    img.onload=()=>{ adminTestPhoto=img; $('#ap-upload-btn').textContent='Change test photo'; renderAdminPreview(); };
-    img.src=r.result;
-  };
-  r.readAsDataURL(file);
-});
 
 function syncAdmin(){
   syncPhotoSeg();
