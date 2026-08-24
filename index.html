@@ -661,22 +661,40 @@ function show(id){
 
 /* ---------- camera ---------- */
 let stream=null;
-function camConstraints(){
-  const v = state.cameraId
-    ? { deviceId:{exact:state.cameraId}, width:{ideal:1280}, height:{ideal:1280} }
-    : { facingMode:'user', width:{ideal:1280}, height:{ideal:1280} };
-  return { video:v, audio:false };
+function camConstraints(useSaved){
+  // Prefer the saved camera, but not with {exact} — exact can open a dead/black
+  // stream if the id half-matches. A plain deviceId is a hint the browser can honor
+  // or fall back from. When useSaved is false, just ask for the front camera.
+  if(useSaved && state.cameraId){
+    return { video:{ deviceId: state.cameraId, width:{ideal:1280}, height:{ideal:1280} }, audio:false };
+  }
+  return { video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:1280} }, audio:false };
 }
 async function startCam(){
-  if(stream) return true;
-  try{
-    stream = await navigator.mediaDevices.getUserMedia(camConstraints());
-    const v=$('#video');
-    v.srcObject = stream;
-    return true;
-  }catch(e){
-    return false;
+  if(stream && stream.active) return true;
+  const v=$('#video');
+  v.setAttribute('playsinline','');
+  v.muted = true;
+  // try the saved camera first; if that fails, fall back to the default front camera
+  for(const useSaved of [true, false]){
+    try{
+      stream = await navigator.mediaDevices.getUserMedia(camConstraints(useSaved));
+      v.srcObject = stream;
+      try{ await v.play(); }catch(e){}
+      if(v.readyState < 2){
+        await new Promise((res)=>{
+          const done=()=>{ v.removeEventListener('loadeddata',done); res(); };
+          v.addEventListener('loadeddata',done);
+          setTimeout(done, 3000);
+        });
+      }
+      return true;
+    }catch(e){
+      if(useSaved) continue;   // saved camera failed → try default
+      return false;            // default also failed → give up
+    }
   }
+  return false;
 }
 
 /* ---------- session flow ---------- */
@@ -1646,10 +1664,13 @@ async function startCamTest(){
   stopCamTest();
   try{
     const v = state.cameraId
-      ? { deviceId:{exact:state.cameraId}, width:{ideal:1280}, height:{ideal:1280} }
+      ? { deviceId:state.cameraId, width:{ideal:1280}, height:{ideal:1280} }
       : { facingMode:'user', width:{ideal:1280}, height:{ideal:1280} };
     camTestStream=await navigator.mediaDevices.getUserMedia({video:v,audio:false});
-    $('#cam-test-video').srcObject=camTestStream;
+    const vid=$('#cam-test-video');
+    vid.srcObject=camTestStream;
+    vid.setAttribute('playsinline',''); vid.muted=true;
+    try{ await vid.play(); }catch(e){}
     $('#cam-test-wrap').style.display='';
     camStatus('ok','Camera working. This is the feed guests will see.');
     await listCameras();   // labels are available now that access is granted
