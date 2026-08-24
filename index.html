@@ -144,7 +144,7 @@
 
   /* ============================ RESULT ============================ */
   #result{background:#f4f4f4;gap:0;padding:24px;}
-  .result-inner{display:flex;gap:clamp(24px,4vw,64px);align-items:center;max-width:1100px;width:100%;justify-content:center;flex-wrap:wrap;}
+  .result-inner{display:flex;flex-direction:row-reverse;gap:clamp(24px,4vw,64px);align-items:center;max-width:1100px;width:100%;justify-content:center;flex-wrap:wrap;}
 
   /* the printed receipt mock */
   .receipt{
@@ -859,7 +859,7 @@ async function finishSession(){
     intro.classList.add('gone');
     reveal.classList.add('shown');
     tryShowGalleryQR();
-  }, 1000);
+  }, 2500);
   startAutoReturn();
 }
 
