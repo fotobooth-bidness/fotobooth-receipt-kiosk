@@ -621,8 +621,8 @@ const state = {
      stays off and the result screen shows no gallery QR. See uploadSession(). */
   galleryEnabled: false,
   galleryEvent: '',       // event name; groups uploads and names the export zip
-  galleryUploadUrl: 'https://gallery.fotobooth.biz/upload',   // Worker upload endpoint
-  galleryBaseUrl: 'https://gallery.fotobooth.biz/g/',         // guest gallery base; QR = base + id
+  galleryUploadUrl: 'https://fotobooth-gallery.fotobooth-biz.workers.dev/upload',   // Worker upload endpoint
+  galleryBaseUrl: 'https://fotobooth-gallery.fotobooth-biz.workers.dev/g/',         // guest gallery base; QR = base + id
   logo: null,         // set to BRAND_LOGO at load
   cameraId: '',       // chosen camera deviceId ('' = default/user-facing)
   bright: 0,
@@ -655,6 +655,14 @@ function loadState(){
     const raw=localStorage.getItem(STORE_KEY); if(!raw) return;
     const saved=JSON.parse(raw);
     PERSIST_FIELDS.forEach(f=>{ if(saved[f]!==undefined) state[f]=saved[f]; });
+    // one-time migration: the old planned gallery.fotobooth.biz URLs were never live;
+    // upgrade any saved copy to the current workers.dev deployment.
+    if(typeof state.galleryUploadUrl==='string' && state.galleryUploadUrl.indexOf('gallery.fotobooth.biz')!==-1){
+      state.galleryUploadUrl='https://fotobooth-gallery.fotobooth-biz.workers.dev/upload';
+    }
+    if(typeof state.galleryBaseUrl==='string' && state.galleryBaseUrl.indexOf('gallery.fotobooth.biz')!==-1){
+      state.galleryBaseUrl='https://fotobooth-gallery.fotobooth-biz.workers.dev/g/';
+    }
     if(saved.statsDate===todayKey() && saved.stats) state.stats=saved.stats;
     else state.stats={prints:0,sessions:0,photos:0};
   }catch(e){/* ignore corrupt/blocked storage */}
