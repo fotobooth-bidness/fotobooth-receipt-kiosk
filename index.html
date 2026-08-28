@@ -1278,6 +1278,8 @@ async function uploadSession(){
     const receiptCanvas = await buildReceiptCanvas();
     const payload = {
       event: state.galleryEvent || 'event',
+      receiptCode: sessionId(),   // the same code printed on the paper receipt (e.g. "K3X9M"),
+                                   // so the gallery can be looked up later from that number
       receipt: receiptCanvas.toDataURL('image/png'),
       photos: state.shots.slice(),           // array of dithered photo data URLs
       grid: state.shots.length>1 ? await buildPhotoGrid() : null,
