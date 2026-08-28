@@ -184,8 +184,8 @@
   .receipt .r-qr{width:32px;height:32px;margin:8px auto 0;display:block;image-rendering:pixelated;opacity:.9;}
   .receipt .r-qr.hidden{display:none;}
   .receipt .r-qrcap{display:none;}
-  .receipt .r-thanks{font-size:12.5px;letter-spacing:.15em;text-transform:uppercase;}
-  .receipt .r-meta{font-size:9px;color:#666;margin-top:8px;}
+  .receipt .r-thanks{font-size:11.5px;letter-spacing:.15em;text-transform:uppercase;}
+  .receipt .r-meta{font-size:10.35px;color:#666;margin-top:8px;}
 
   /* ---- result left column: intro text fades out, QR + buttons fade in ---- */
   .result-left{position:relative;min-width:280px;width:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
@@ -1174,8 +1174,8 @@ async function buildReceiptCanvas(){
   // Footer: centered thanks + timestamp, then a small centered QR below.
   const thanksLine = (state.thanksText || 'Thanks for popping in').toUpperCase();
   if(showCornerQR){
-    blocks.push({type:'text',text:thanksLine,font:'23px monospace'}); y+=32;
-    blocks.push({type:'text',text:new Date().toLocaleString()+'  #'+sessionId(),font:'14px monospace'}); y+=24;
+    blocks.push({type:'text',text:thanksLine,font:'21px monospace'}); y+=30;
+    blocks.push({type:'text',text:new Date().toLocaleString()+'  #'+sessionId(),font:'16px monospace'}); y+=26;
     const qs = Math.round(innerW*0.14);   // ~15mm — about as small as a QR can go and still scan
     const capH = cornerQRcap ? 16 : 0;
     blocks.push({type:'draw',h:qs+capH,fn:(yy)=>{
@@ -1189,8 +1189,8 @@ async function buildReceiptCanvas(){
     }});
     y+=qs+capH+12;
   }else{
-    blocks.push({type:'text',text:thanksLine,font:'23px monospace'}); y+=32;
-    blocks.push({type:'text',text:new Date().toLocaleString()+'  #'+sessionId(),font:'14px monospace'}); y+=22;
+    blocks.push({type:'text',text:thanksLine,font:'21px monospace'}); y+=30;
+    blocks.push({type:'text',text:new Date().toLocaleString()+'  #'+sessionId(),font:'16px monospace'}); y+=24;
   }
   y+=pad;
 
