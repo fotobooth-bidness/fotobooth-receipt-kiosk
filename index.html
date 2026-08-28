@@ -173,7 +173,7 @@
   .receipt .r-lockup.logo-first .r-div{order:2;}
   .receipt .r-lockup.logo-first .r-eventlogo{order:1;}
   .receipt .r-mark{height:22px;object-fit:contain;}
-  .receipt .r-div{color:#1a1a17;font-size:22px;font-weight:300;opacity:.45;}
+  .receipt .r-div{color:#1a1a17;font-size:22px;font-weight:300;}
   .receipt .r-div.hide{display:none;}
   .receipt .r-eventlogo{height:24px;max-width:48%;object-fit:contain;}
   .receipt .r-eventlogo[src=""]{display:none;}
@@ -1130,15 +1130,13 @@ async function buildReceiptCanvas(){
       ctx.imageSmoothingEnabled=true;
       if(logoFirst){
         drawEv(startX, cy);
-        ctx.fillStyle='#000'; ctx.globalAlpha=.4;
+        ctx.fillStyle='#000';
         ctx.fillRect(startX+evW+gap, cy-Math.min(evH,44)/2, divW, Math.min(evH,44));
-        ctx.globalAlpha=1;
         ctx.drawImage(mark, startX+evW+gap+divW+gap, cy - markH/2, markW, markH);
       }else{
         ctx.drawImage(mark, startX, cy - markH/2, markW, markH);
-        ctx.fillStyle='#000'; ctx.globalAlpha=.4;
+        ctx.fillStyle='#000';
         ctx.fillRect(startX+markW+gap, cy-Math.min(evH,44)/2, divW, Math.min(evH,44));
-        ctx.globalAlpha=1;
         drawEv(startX+markW+gap+divW+gap, cy);
       }
     }});
@@ -1776,10 +1774,54 @@ document.querySelectorAll('#seg-header-mode .seg-btn').forEach(b=>{
 $('#f-event-name').addEventListener('input',e=>{ state.eventName=e.target.value; syncHeaderMode(); saveState(); });
 $('#f-thanks-text').addEventListener('input',e=>{ state.thanksText=e.target.value; saveState(); });
 
-$('#f-event-logo').addEventListener('change',e=>{
+// Trims transparent (or near-white) margin from an uploaded logo so its actual visible
+// content — not an arbitrary padded canvas — is what gets centered in the header.
+// Many exported logo PNGs have uneven blank space baked in around the artwork; without
+// this, the header looks off-center even though the layout math is correct for the
+// image's bounding box.
+function autoCropLogo(dataUrl){
+  return new Promise((resolve)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement('canvas'); c.width=img.width; c.height=img.height;
+      const ctx=c.getContext('2d');
+      ctx.drawImage(img,0,0);
+      let data;
+      try{ data=ctx.getImageData(0,0,c.width,c.height).data; }
+      catch(e){ resolve(dataUrl); return; }   // e.g. tainted canvas — fall back to original
+      let minX=c.width, minY=c.height, maxX=-1, maxY=-1;
+      for(let y=0;y<c.height;y++){
+        for(let x=0;x<c.width;x++){
+          const i=(y*c.width+x)*4;
+          const alpha=data[i+3];
+          const isWhiteish = data[i]>250 && data[i+1]>250 && data[i+2]>250;
+          if(alpha>10 && !isWhiteish){
+            if(x<minX)minX=x; if(x>maxX)maxX=x;
+            if(y<minY)minY=y; if(y>maxY)maxY=y;
+          }
+        }
+      }
+      if(maxX<minX || maxY<minY){ resolve(dataUrl); return; }   // fully blank — keep original
+      const pad=4;   // small breathing room so the crop isn't razor-tight to the artwork
+      minX=Math.max(0,minX-pad); minY=Math.max(0,minY-pad);
+      maxX=Math.min(c.width-1,maxX+pad); maxY=Math.min(c.height-1,maxY+pad);
+      const w=maxX-minX+1, h=maxY-minY+1;
+      const out=document.createElement('canvas'); out.width=w; out.height=h;
+      out.getContext('2d').drawImage(c, minX,minY,w,h, 0,0,w,h);
+      resolve(out.toDataURL('image/png'));
+    };
+    img.onerror=()=>resolve(dataUrl);
+    img.src=dataUrl;
+  });
+}
+
+$('#f-event-logo').addEventListener('change',async e=>{
   const file=e.target.files[0]; if(!file)return;
   const r=new FileReader();
-  r.onload=()=>{ state.eventLogo=r.result; syncHeaderMode(); saveState(); };
+  r.onload=async()=>{
+    const cropped = await autoCropLogo(r.result);
+    state.eventLogo=cropped; syncHeaderMode(); saveState();
+  };
   r.readAsDataURL(file);
 });
 $('#event-logo-clear').addEventListener('click',()=>{
