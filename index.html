@@ -169,6 +169,9 @@
 
   .receipt .r-head{text-align:center;border-bottom:1px dashed #999;padding-bottom:12px;margin-bottom:12px;}
   .receipt .r-lockup{display:flex;align-items:center;justify-content:center;gap:10px;}
+  .receipt .r-lockup.logo-first .r-mark{order:3;}
+  .receipt .r-lockup.logo-first .r-div{order:2;}
+  .receipt .r-lockup.logo-first .r-eventlogo{order:1;}
   .receipt .r-mark{height:22px;object-fit:contain;}
   .receipt .r-div{color:#1a1a17;font-size:22px;font-weight:300;opacity:.45;}
   .receipt .r-div.hide{display:none;}
@@ -903,9 +906,10 @@ async function finishSession(){
 function buildReceipt(){
   // fixed wordmark; header slot shows EITHER a typed event name OR an uploaded event logo
   $('#rc-mark').src = state.logo || BRAND_LOGO;
-  const evImg=$('#rc-eventlogo'), div=$('#rc-div'), evName=$('#rc-eventname');
+  const evImg=$('#rc-eventlogo'), div=$('#rc-div'), evName=$('#rc-eventname'), lockup=$('#rc-lockup');
   const useLogo = state.headerMode==='logo' && !!state.eventLogo;
   const useName = state.headerMode==='name' && !!(state.eventName && state.eventName.trim());
+  lockup.classList.toggle('logo-first', useLogo);   // uploaded logo prints before the wordmark
   if(useLogo){
     evImg.src=state.eventLogo; evImg.classList.remove('hide');
     evName.textContent='';
@@ -1119,14 +1123,24 @@ async function buildReceiptCanvas(){
     }
     const totalW = markW + gap + divW + gap + evW;
     const startX = pad + (innerW - totalW)/2;
+    const logoFirst = !!evLogo;   // uploaded logo prints first (left), wordmark after;
+                                   // typed event name keeps the wordmark first, as before.
     blocks.push({type:'draw',h:headH,fn:(yy)=>{
       const cy = yy + headH/2;
       ctx.imageSmoothingEnabled=true;
-      ctx.drawImage(mark, startX, cy - markH/2, markW, markH);
-      ctx.fillStyle='#000'; ctx.globalAlpha=.4;
-      ctx.fillRect(startX+markW+gap, cy-Math.min(evH,44)/2, divW, Math.min(evH,44));
-      ctx.globalAlpha=1;
-      drawEv(startX+markW+gap+divW+gap, cy);
+      if(logoFirst){
+        drawEv(startX, cy);
+        ctx.fillStyle='#000'; ctx.globalAlpha=.4;
+        ctx.fillRect(startX+evW+gap, cy-Math.min(evH,44)/2, divW, Math.min(evH,44));
+        ctx.globalAlpha=1;
+        ctx.drawImage(mark, startX+evW+gap+divW+gap, cy - markH/2, markW, markH);
+      }else{
+        ctx.drawImage(mark, startX, cy - markH/2, markW, markH);
+        ctx.fillStyle='#000'; ctx.globalAlpha=.4;
+        ctx.fillRect(startX+markW+gap, cy-Math.min(evH,44)/2, divW, Math.min(evH,44));
+        ctx.globalAlpha=1;
+        drawEv(startX+markW+gap+divW+gap, cy);
+      }
     }});
   }else{
     blocks.push({type:'draw',h:headH,fn:(yy)=>{
