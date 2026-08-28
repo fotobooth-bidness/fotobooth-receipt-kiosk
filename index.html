@@ -174,6 +174,9 @@
   .receipt .r-div.hide{display:none;}
   .receipt .r-eventlogo{height:24px;max-width:48%;object-fit:contain;}
   .receipt .r-eventlogo[src=""]{display:none;}
+  .receipt .r-eventname{font-family:'Playfair Display',serif;font-weight:700;font-size:17px;max-width:48%;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .receipt .r-eventname:empty{display:none;}
   .receipt .r-strip{display:grid;grid-template-columns:1fr;gap:var(--strip-gap);}
   .receipt .r-strip.grid-4{grid-template-columns:1fr 1fr;}
   .receipt .r-strip img{width:100%;display:block;filter:grayscale(1) contrast(1.1);}
@@ -181,8 +184,6 @@
   .receipt .r-qr{width:32px;height:32px;margin:8px auto 0;display:block;image-rendering:pixelated;opacity:.9;}
   .receipt .r-qr.hidden{display:none;}
   .receipt .r-qrcap{display:none;}
-  .receipt .r-eventfoot{max-width:72%;max-height:150px;margin:14px auto 10px;display:block;object-fit:contain;filter:grayscale(1) contrast(1.1);}
-  .receipt .r-eventfoot.hidden{display:none;}
   .receipt .r-thanks{font-size:10px;letter-spacing:.15em;text-transform:uppercase;}
   .receipt .r-meta{font-size:9px;color:#666;margin-top:8px;}
 
@@ -261,6 +262,8 @@
   .brand-lockup .brand-div{color:var(--black);font-size:26px;font-weight:300;opacity:.4;}
   .brand-lockup .event-logo-preview{height:30px;max-width:55%;object-fit:contain;}
   .brand-lockup .event-logo-preview:not([src]),.brand-lockup .event-logo-preview[src=""]{display:none;}
+  .brand-lockup .event-name-preview{font-family:'Playfair Display',serif;font-weight:700;font-size:19px;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .brand-lockup .event-name-preview:empty{display:none;}
   .brand-lockup .brand-div.hide{display:none;}
   .admin-note{font-size:11px;line-height:1.6;opacity:.6;margin-top:6px;}
   .fixed-note{padding:12px 14px;border-radius:10px;background:#f2f2f2;border:1px solid var(--line);font-size:14px;opacity:.85;}
@@ -352,12 +355,12 @@
           <img class="r-mark" id="rc-mark" src="" alt="fotobooth.">
           <span class="r-div" id="rc-div">|</span>
           <img class="r-eventlogo" id="rc-eventlogo" src="" alt="">
+          <span class="r-eventname" id="rc-eventname"></span>
         </div>
       </div>
       <div class="r-strip" id="rc-strip"></div>
       <div class="r-foot">
-        <img class="r-eventfoot hidden" id="rc-eventfoot" alt="">
-        <div class="r-thanks">Thanks for popping in</div>
+        <div class="r-thanks" id="rc-thanks">Thanks for popping in</div>
         <div class="r-meta" id="rc-meta"></div>
         <img class="r-qr hidden" id="rc-qr" alt="scan">
         <div class="r-qrcap hidden" id="rc-qrcap"></div>
@@ -446,19 +449,34 @@
       </div>
 
       <div class="field full">
-        <label>Header — event / collaborator PNG</label>
+        <label>Header — event name or logo</label>
         <div class="row">
           <div class="brand-lockup">
             <img class="brand-mark" src="" id="brand-mark-preview" alt="fotobooth">
             <span class="brand-div" id="brand-div">|</span>
             <img class="event-logo-preview" id="event-logo-preview" alt="">
+            <span class="event-name-preview" id="event-name-preview"></span>
           </div>
         </div>
-        <div class="row" style="margin-top:12px;">
+        <div class="seg" id="seg-header-mode" style="margin-top:12px;">
+          <button data-mode="name" class="seg-btn">Type a name</button>
+          <button data-mode="logo" class="seg-btn">Upload a logo</button>
+          <button data-mode="none" class="seg-btn">Wordmark alone</button>
+        </div>
+        <div class="row" id="header-name-row" style="margin-top:12px;">
+          <input type="text" id="f-event-name" placeholder="e.g. Priya &amp; Marcus" style="flex:1;" maxlength="40">
+        </div>
+        <div class="row" id="header-logo-row" style="margin-top:12px;">
           <input type="file" id="f-event-logo" accept="image/png,image/*" style="font-size:12px;max-width:190px;">
           <button id="event-logo-clear" class="btn btn-ghost" style="padding:6px 12px;font-size:11px;">Clear</button>
         </div>
-        <div class="admin-note">The <strong>fotobooth.</strong> wordmark is fixed. Upload a transparent PNG of the event or business name — it prints to the right of the divider as <em>fotobooth. | your event</em>. Leave empty to print the wordmark alone.</div>
+        <div class="admin-note">The <strong>fotobooth.</strong> wordmark is always fixed on the left. Next to it, pick one: type the event's name (prints as <em>fotobooth. | your event</em>), upload a transparent PNG logo, or leave it as the wordmark alone.</div>
+      </div>
+
+      <div class="field full">
+        <label>Footer message</label>
+        <input type="text" id="f-thanks-text" placeholder="Thanks for popping in" maxlength="40">
+        <div class="admin-note">Prints above the timestamp at the bottom of the receipt. Prints in capitals regardless of how you type it here.</div>
       </div>
 
       <div class="field full">
@@ -610,6 +628,9 @@ const state = {
   paper: 112,
   copies: 1,
   eventLogo: null,    // small PNG: event name / collaborator, sits after the wordmark
+  eventName: '',       // typed event name text — alternative to eventLogo, same header slot
+  headerMode: 'logo',  // 'logo' (use eventLogo image) | 'name' (use typed eventName text)
+  thanksText: 'Thanks for popping in',   // editable footer line on the receipt
   attractMode: 'fotobooth',  // 'fotobooth' | 'brand' (their brand as hero) | 'stacked' (their brand + fotobooth)
   brandType: 'image', // 'image' | 'text' — how the collaborator brand is shown on the attract screen
   brandImg: null,     // dataURL of collaborator logo for the attract screen
@@ -642,7 +663,7 @@ const state = {
    Settings + daily analytics survive reloads/power cycles on the tablet.
    Wrapped in try/catch so the kiosk still runs if storage is unavailable. */
 const STORE_KEY='fotobooth.kiosk.v1';
-const PERSIST_FIELDS=['photos','qrUrl','qrCaption','countdown','copies','eventLogo','attractMode','brandType','brandImg','brandText','shareMode','galleryEnabled','galleryEvent','galleryUploadUrl','galleryBaseUrl','cameraId','bright','contrast','qr','dither','printMode','printerIP','printerPort','pin'];
+const PERSIST_FIELDS=['photos','qrUrl','qrCaption','countdown','copies','eventLogo','eventName','headerMode','thanksText','attractMode','brandType','brandImg','brandText','shareMode','galleryEnabled','galleryEvent','galleryUploadUrl','galleryBaseUrl','cameraId','bright','contrast','qr','dither','printMode','printerIP','printerPort','pin'];
 function todayKey(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
 function saveState(){
   try{
@@ -880,32 +901,42 @@ async function finishSession(){
 }
 
 function buildReceipt(){
-  // fixed wordmark; event PNG rides in the header lockup ONLY when QR is on
+  // fixed wordmark; header slot shows EITHER a typed event name OR an uploaded event logo
   $('#rc-mark').src = state.logo || BRAND_LOGO;
-  const evImg=$('#rc-eventlogo'), div=$('#rc-div'), evFoot=$('#rc-eventfoot');
-  const showEventInHeader = state.eventLogo && state.qr;
-  if(showEventInHeader){ evImg.src=state.eventLogo; div.classList.remove('hide'); evImg.classList.remove('hide'); }
-  else { evImg.src=''; div.classList.add('hide'); evImg.classList.add('hide'); }
+  const evImg=$('#rc-eventlogo'), div=$('#rc-div'), evName=$('#rc-eventname');
+  const useLogo = state.headerMode==='logo' && !!state.eventLogo;
+  const useName = state.headerMode==='name' && !!(state.eventName && state.eventName.trim());
+  if(useLogo){
+    evImg.src=state.eventLogo; evImg.classList.remove('hide');
+    evName.textContent='';
+    div.classList.remove('hide');
+  }else if(useName){
+    evImg.src=''; evImg.classList.add('hide');
+    evName.textContent=state.eventName.trim();
+    div.classList.remove('hide');
+  }else{
+    evImg.src=''; evImg.classList.add('hide');
+    evName.textContent='';
+    div.classList.add('hide');
+  }
   // photo strip: 1 = single, 4 = 2x2 grid
   const strip=$('#rc-strip'); strip.innerHTML='';
   strip.classList.toggle('grid-4', state.shots.length===4);
   state.shots.forEach(src=>{
     const im=new Image(); im.src=src; strip.appendChild(im);
   });
-  // QR slot: QR when on, event art (larger) when off
+  // QR slot: only shown when QR is on (independent of the header event content now)
   const qr=$('#rc-qr'), qrcap=$('#rc-qrcap');
   if(state.qr){
     qr.classList.remove('hidden');
     qr.src = makeQR(state.qrUrl);
     if(state.qrCaption){ qrcap.textContent=state.qrCaption; qrcap.classList.remove('hidden'); }
     else qrcap.classList.add('hidden');
-    evFoot.classList.add('hidden'); evFoot.src='';
   }else{
     qr.classList.add('hidden');
     qrcap.classList.add('hidden');
-    if(state.eventLogo){ evFoot.src=state.eventLogo; evFoot.classList.remove('hidden'); }
-    else { evFoot.src=''; evFoot.classList.add('hidden'); }
   }
+  $('#rc-thanks').textContent = state.thanksText || 'Thanks for popping in';
   const now=new Date();
   $('#rc-meta').textContent = now.toLocaleString() + '  ·  #' + sessionId();
 }
@@ -1049,22 +1080,43 @@ async function buildReceiptCanvas(){
   let y = pad;
   const blocks = [];
 
-  // ---- fixed header: fotobooth. wordmark  |  optional event/collaborator PNG ----
+  // ---- fixed header: fotobooth. wordmark  |  optional event name text OR event logo image ----
   const mark = await loadImg(state.logo || BRAND_LOGO);
-  let evLogo=null; if(state.eventLogo){ try{ evLogo=await loadImg(state.eventLogo); }catch(e){} }
+  let evLogo=null;
+  if(state.headerMode==='logo' && state.eventLogo){ try{ evLogo=await loadImg(state.eventLogo); }catch(e){} }
+  const evName = (state.headerMode==='name' && state.eventName) ? state.eventName.trim() : '';
   const headH = 64;
   const markH = Math.min(46, headH);
   const markW = markH * mark.width/mark.height;
-  // event PNG rides in the header lockup ONLY when the QR is shown.
-  // With QR off, the header is the wordmark alone and the event art moves
-  // down into the QR's slot (sized larger) — see the footer block below.
-  const showEventInHeader = evLogo && state.qr;
-  if(showEventInHeader){
-    const evH = Math.min(44, headH);
-    let evW = evH * evLogo.width/evLogo.height;
+  const hasEventContent = !!(evLogo || evName);
+  if(hasEventContent){
     const gap = 18, divW = 3;
     const maxEvW = innerW - markW - gap - divW - gap;
-    if(evW > maxEvW) evW = maxEvW;
+    let evW, evH, drawEv;
+    if(evLogo){
+      evH = Math.min(44, headH);
+      evW = evH * evLogo.width/evLogo.height;
+      if(evW > maxEvW) evW = maxEvW;   // shrink an oversized logo to fit beside the wordmark
+      drawEv = (x,cy)=>{ ctx.imageSmoothingEnabled=true; ctx.drawImage(evLogo, x, cy-evH/2, evW, evH); };
+    }else{
+      const font = '700 26px Playfair Display, serif';
+      ctx.font = font;
+      // truncate with an ellipsis (not just clamp the number) so long names never
+      // overflow past the wordmark/photo area — canvas fillText doesn't auto-clip.
+      let label = evName;
+      if(ctx.measureText(label).width > maxEvW && maxEvW > 0){
+        while(label.length>1 && ctx.measureText(label+'…').width > maxEvW) label = label.slice(0,-1);
+        label = label.length<evName.length ? label+'…' : label;
+      }
+      evW = Math.min(ctx.measureText(label).width, maxEvW);
+      evH = 30;
+      drawEv = (x,cy)=>{
+        ctx.font = font;
+        ctx.fillStyle='#000'; ctx.textAlign='left'; ctx.textBaseline='middle';
+        ctx.fillText(label, x, cy+1);
+        ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+      };
+    }
     const totalW = markW + gap + divW + gap + evW;
     const startX = pad + (innerW - totalW)/2;
     blocks.push({type:'draw',h:headH,fn:(yy)=>{
@@ -1072,9 +1124,9 @@ async function buildReceiptCanvas(){
       ctx.imageSmoothingEnabled=true;
       ctx.drawImage(mark, startX, cy - markH/2, markW, markH);
       ctx.fillStyle='#000'; ctx.globalAlpha=.4;
-      ctx.fillRect(startX+markW+gap, cy-evH/2, divW, evH);
+      ctx.fillRect(startX+markW+gap, cy-Math.min(evH,44)/2, divW, Math.min(evH,44));
       ctx.globalAlpha=1;
-      ctx.drawImage(evLogo, startX+markW+gap+divW+gap, cy - evH/2, evW, evH);
+      drawEv(startX+markW+gap+divW+gap, cy);
     }});
   }else{
     blocks.push({type:'draw',h:headH,fn:(yy)=>{
@@ -1117,21 +1169,12 @@ async function buildReceiptCanvas(){
   if(showCornerQR){
     cornerQR = await loadImg(makeQR(state.qrUrl));
     cornerQRcap = state.qrCaption||'';
-  }else if(evLogo){
-    // QR off: event/collaborator PNG takes a centered slot as before.
-    const maxW = Math.round(innerW*0.72);
-    const maxH = 150;
-    let ew = evLogo.width, eh = evLogo.height;
-    const scale = Math.min(maxW/ew, maxH/eh);
-    ew = Math.round(ew*scale); eh = Math.round(eh*scale);
-    blocks.push({type:'draw',h:eh,fn:(yy)=>{ ctx.imageSmoothingEnabled=true; ctx.drawImage(evLogo, pad+(innerW-ew)/2, yy, ew, eh); }});
-    y+=eh+12;
-    blocks.push({type:'rule'}); y+=16;
   }
 
   // Footer: centered thanks + timestamp, then a small centered QR below.
+  const thanksLine = (state.thanksText || 'Thanks for popping in').toUpperCase();
   if(showCornerQR){
-    blocks.push({type:'text',text:'THANKS FOR POPPING IN',font:'18px monospace'}); y+=28;
+    blocks.push({type:'text',text:thanksLine,font:'18px monospace'}); y+=28;
     blocks.push({type:'text',text:new Date().toLocaleString()+'  #'+sessionId(),font:'14px monospace'}); y+=24;
     const qs = Math.round(innerW*0.14);   // ~15mm — about as small as a QR can go and still scan
     const capH = cornerQRcap ? 16 : 0;
@@ -1146,7 +1189,7 @@ async function buildReceiptCanvas(){
     }});
     y+=qs+capH+12;
   }else{
-    blocks.push({type:'text',text:'THANKS FOR POPPING IN',font:'18px monospace'}); y+=28;
+    blocks.push({type:'text',text:thanksLine,font:'18px monospace'}); y+=28;
     blocks.push({type:'text',text:new Date().toLocaleString()+'  #'+sessionId(),font:'14px monospace'}); y+=22;
   }
   y+=pad;
@@ -1518,8 +1561,9 @@ function syncAdmin(){
   updatePrintModeHelp();
   setToggle(state.qr);
   $('#brand-mark-preview').src=BRAND_LOGO;
-  $('#event-logo-preview').src=state.eventLogo||'';
-  $('#brand-div').classList.toggle('hide', !state.eventLogo);
+  $('#f-event-name').value=state.eventName||'';
+  $('#f-thanks-text').value=state.thanksText||'';
+  syncHeaderMode();
   syncAttract();
   syncShareSeg();
   syncGallery();
@@ -1697,14 +1741,35 @@ $('#f-pin').addEventListener('input',e=>{ const v=e.target.value.replace(/\D/g,'
 function setToggle(on){ $('#t-qr').classList.toggle('on',on); $('#t-qr-lbl').textContent=on?'On':'Off'; state.qr=on; }
 $('#t-qr').addEventListener('click',()=>{ setToggle(!state.qr); saveState(); });
 
+function syncHeaderMode(){
+  document.querySelectorAll('#seg-header-mode .seg-btn').forEach(b=>{
+    b.classList.toggle('on', b.dataset.mode===state.headerMode);
+  });
+  $('#header-name-row').style.display = state.headerMode==='name' ? '' : 'none';
+  $('#header-logo-row').style.display = state.headerMode==='logo' ? '' : 'none';
+  // preview lockup: show whichever is active
+  const logoPrev=$('#event-logo-preview'), namePrev=$('#event-name-preview'), div=$('#brand-div');
+  const useLogo = state.headerMode==='logo' && !!state.eventLogo;
+  const useName = state.headerMode==='name' && !!(state.eventName && state.eventName.trim());
+  logoPrev.src = useLogo ? state.eventLogo : '';
+  namePrev.textContent = useName ? state.eventName.trim() : '';
+  div.classList.toggle('hide', !(useLogo || useName));
+}
+document.querySelectorAll('#seg-header-mode .seg-btn').forEach(b=>{
+  b.addEventListener('click',()=>{ state.headerMode=b.dataset.mode; syncHeaderMode(); saveState(); });
+});
+
+$('#f-event-name').addEventListener('input',e=>{ state.eventName=e.target.value; syncHeaderMode(); saveState(); });
+$('#f-thanks-text').addEventListener('input',e=>{ state.thanksText=e.target.value; saveState(); });
+
 $('#f-event-logo').addEventListener('change',e=>{
   const file=e.target.files[0]; if(!file)return;
   const r=new FileReader();
-  r.onload=()=>{ state.eventLogo=r.result; $('#event-logo-preview').src=r.result; $('#brand-div').classList.remove('hide'); saveState(); };
+  r.onload=()=>{ state.eventLogo=r.result; syncHeaderMode(); saveState(); };
   r.readAsDataURL(file);
 });
 $('#event-logo-clear').addEventListener('click',()=>{
-  state.eventLogo=null; $('#event-logo-preview').src=''; $('#f-event-logo').value=''; $('#brand-div').classList.add('hide'); saveState();
+  state.eventLogo=null; $('#f-event-logo').value=''; syncHeaderMode(); saveState();
 });
 
 function updatePrinterStatus(){
