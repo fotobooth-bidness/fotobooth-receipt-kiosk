@@ -1177,13 +1177,13 @@ async function buildReceiptCanvas(){
     blocks.push({type:'text',text:thanksLine,font:'21px monospace'}); y+=30;
     blocks.push({type:'text',text:new Date().toLocaleString()+'  #'+sessionId(),font:'16px monospace'}); y+=26;
     const qs = Math.round(innerW*0.14);   // ~15mm — about as small as a QR can go and still scan
-    const capH = cornerQRcap ? 16 : 0;
+    const capH = cornerQRcap ? 18 : 0;
     blocks.push({type:'draw',h:qs+capH,fn:(yy)=>{
       ctx.imageSmoothingEnabled=false;
       ctx.drawImage(cornerQR, pad+(innerW-qs)/2, yy, qs, qs);   // centered
       if(cornerQRcap){
-        ctx.fillStyle='#333'; ctx.font='10px monospace'; ctx.textAlign='center'; ctx.textBaseline='top';
-        ctx.fillText(cornerQRcap, W/2, yy+qs+3);
+        ctx.fillStyle='#333'; ctx.font='11px monospace'; ctx.textAlign='center'; ctx.textBaseline='top';
+        ctx.fillText(cornerQRcap, W/2, yy+qs+4);
         ctx.textAlign='left';
       }
     }});
