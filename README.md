@@ -103,10 +103,17 @@ separate from the small printed QR, which always points to the website.
   a private gallery page for that session, where the guest picks which images to download.
   Photos are grouped by the **event name** set in admin.
 - **Auto-delete:** photos are removed automatically after 30 days.
-- **Downloading a whole event yourself:** visit
-  `https://fotobooth-gallery.fotobooth-biz.workers.dev/export/<event-name>?key=YOUR_EXPORT_KEY`
-  to get a zip of every photo from that event. The export key was set during deployment — keep
-  it private.
+- **Browsing an event yourself:** visit
+  `https://fotobooth-gallery.fotobooth-biz.workers.dev/browse/<event-name>?key=YOUR_EXPORT_KEY`
+  for a thumbnail grid of every session in that event, newest first. Tap a thumbnail to open that
+  session's own gallery page and view/download individual images. Not linked anywhere public.
+- **Downloading a whole event as a zip:** visit
+  `https://fotobooth-gallery.fotobooth-biz.workers.dev/export/<event-name>?key=YOUR_EXPORT_KEY`.
+  The zip is organized into two folders — `Receipts/` (every session's printed receipt design,
+  plus the 2×2 grid for 4-photo sessions) and `Photos/` (every session's individual photos) —
+  with each file tagged by session id so nothing from different sessions collides. The export key
+  was set during deployment — keep it private; anyone with the link and key can download that
+  event.
 - **Requires internet on the tablet.** With no connection, the booth just prints normally and no
   gallery QR appears — nothing breaks.
 
