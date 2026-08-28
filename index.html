@@ -634,7 +634,8 @@ const state = {
   printerPort: 80,
   pin: '1234',
   stats: { prints:0, sessions:0, photos:0 },
-  shots: []       // captured dithered dataURLs for current session
+  shots: [],       // captured dithered dataURLs for current session (what prints/shares)
+  cleanShots: []   // undithered copies of the same shots, for the online gallery only
 };
 
 /* ---------- persistence ----------
@@ -720,6 +721,7 @@ async function beginSession(){
     return;
   }
   state.shots = [];
+  state.cleanShots = [];
   sessionCancelled = false;
   renderTally(0);
   await getReady();
@@ -733,6 +735,7 @@ function cancelSession(){
   $('#countdown').innerHTML='';
   $('#prompt-band').textContent='';
   state.shots = [];
+  state.cleanShots = [];
   show('attract');
 }
 
@@ -764,7 +767,8 @@ async function runCaptureLoop(){
     if(sessionCancelled) return;
     fireFlash();
     const shot = grabFrame();
-    state.shots.push(shot);
+    state.shots.push(shot.dithered);        // unchanged: what prints/shares, as before
+    state.cleanShots.push(shot.clean);       // new: undithered copy, used only for the gallery
     renderTally(i+1);
     await wait(700);
   }
@@ -806,8 +810,12 @@ function grabFrame(){
   ctx.translate(size,0); ctx.scale(-1,1);
   ctx.drawImage(v, sx,sy,s,s, 0,0,size,size);
   ctx.restore();
+  // keep a clean copy BEFORE dithering — this is what the gallery/screen shows,
+  // since the dithered version only looks right printed small on thermal paper.
+  const clean = c.toDataURL('image/png');
   ditherCanvas(ctx,size,size);
-  return c.toDataURL('image/png');
+  const dithered = c.toDataURL('image/png');
+  return { dithered, clean };
 }
 
 /* ---------- dithering ---------- */
@@ -1244,7 +1252,7 @@ function tickReturn(){
 }
 function endSession(){
   clearTimeout(returnTimer);
-  _sid=null; state.shots=[];
+  _sid=null; state.shots=[]; state.cleanShots=[];
   const intro=$('#result-intro'), reveal=$('#result-reveal');
   if(intro) intro.classList.remove('gone');
   if(reveal) reveal.classList.remove('shown');
@@ -1274,15 +1282,19 @@ async function uploadSession(){
   if(!navigator.onLine) return null;
   if(!state.galleryUploadUrl || !state.galleryBaseUrl) return null;
   try{
-    // build the payload: receipt design + each photo, as data URLs
+    // build the payload: receipt design (dithered, as printed) + clean, undithered photos.
+    // The receipt design keeps its printed look on purpose — that IS what the receipt looks
+    // like. The individual photos use the clean copies instead, since the dithered look is
+    // meant for small thermal paper and reads as noisy on a screen at gallery size.
     const receiptCanvas = await buildReceiptCanvas();
+    const cleanShots = (state.cleanShots && state.cleanShots.length===state.shots.length) ? state.cleanShots : state.shots;
     const payload = {
       event: state.galleryEvent || 'event',
       receiptCode: sessionId(),   // the same code printed on the paper receipt (e.g. "K3X9M"),
                                    // so the gallery can be looked up later from that number
       receipt: receiptCanvas.toDataURL('image/png'),
-      photos: state.shots.slice(),           // array of dithered photo data URLs
-      grid: state.shots.length>1 ? await buildPhotoGrid() : null,
+      photos: cleanShots.slice(),                 // array of clean (undithered) photo data URLs
+      grid: cleanShots.length>1 ? await buildPhotoGrid(cleanShots) : null,
       ts: Date.now()
     };
     const res = await fetch(state.galleryUploadUrl, {
@@ -1322,8 +1334,9 @@ function sharingEnabled(){
 }
 
 // Compose a plain 2x2 grid image (no receipt chrome) from the 4 shots.
-async function buildPhotoGrid(){
-  const imgs=[]; for(const s of state.shots) imgs.push(await loadImg(s));
+async function buildPhotoGrid(shots){
+  shots = shots || state.shots;
+  const imgs=[]; for(const s of shots) imgs.push(await loadImg(s));
   const cell=600, gap=20, pad=30;
   const cols=2, rows=2;
   const W=pad*2+cell*cols+gap*(cols-1);
