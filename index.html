@@ -1636,7 +1636,7 @@ function syncStartLayout(){
   att.classList.toggle('live-mode', isLive);
   if(isLive){
     if(hero.parentNode!==side){ side.appendChild(hero); side.appendChild(tag); side.appendChild(btn); }
-    btn.textContent='Start';
+    btn.textContent='Tap to Start';
     startAttractCam();
   }else{
     if(hero.parentNode!==att){ att.insertBefore(hero, live); att.insertBefore(tag, live); att.insertBefore(btn, live); }
