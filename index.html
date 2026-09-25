@@ -141,13 +141,36 @@
 
   #countdown{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    font-family:'Playfair Display',serif;font-weight:900;font-size:min(30vh,30vw);color:#fff;
+    font-family:system-ui,-apple-system,Roboto,'Segoe UI','Helvetica Neue',Arial,sans-serif;font-weight:400;font-size:min(30vh,30vw);color:#fff;
+    font-variant-numeric:tabular-nums;
     text-shadow:0 4px 30px rgba(0,0,0,.7);pointer-events:none;
   }
   #countdown .num{animation:pop .9s ease-out;}
-  #countdown .ready{font-size:clamp(40px,9vw,110px);animation:readyIn .5s ease-out;}
+  #countdown .ready{font-size:clamp(36px,6vw,80px);font-weight:400;letter-spacing:-.01em;animation:readyIn .35s ease-out;}
   @keyframes readyIn{0%{transform:scale(.85);opacity:0}100%{transform:scale(1);opacity:1}}
   @keyframes pop{0%{transform:scale(.3);opacity:0}30%{transform:scale(1);opacity:1}100%{transform:scale(1.6);opacity:0}}
+
+  /* ---- live-camera mode: camera stays where it was on the start screen (left),
+         countdown / shot counter / prompt take the Start button's place (right) ---- */
+  #capture .cap-side{display:none;}
+  #capture.side-mode{flex-direction:row;gap:clamp(28px,5vw,80px);padding:0 4vw;}
+  #capture.side-mode #cam-wrap{flex:none;width:min(80vh,52vw);height:min(80vh,52vw);}
+  #capture.side-mode .vignette{display:none;}
+  #capture.side-mode .cap-side{display:flex;flex:0 1 38vw;min-width:0;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+  #capture.side-mode .shot-tally{position:static;margin-bottom:clamp(16px,4vh,36px);}
+  #capture.side-mode #countdown{position:static;inset:auto;color:var(--black);text-shadow:none;
+    font-size:clamp(110px,26vh,240px);height:1.15em;line-height:1;width:100%;}
+  #capture.side-mode #countdown .ready{font-size:clamp(32px,4.4vw,60px);}
+  /* in the side column, numbers fade in/out in place instead of growing over the dots and prompt */
+  #capture.side-mode #countdown .num{animation:popSide .95s ease-out;}
+  @keyframes popSide{0%{transform:scale(.75);opacity:0}22%{transform:scale(1);opacity:1}78%{opacity:1}100%{transform:scale(1);opacity:0}}
+  #capture.side-mode .prompt-band{position:static;margin-top:clamp(12px,3vh,28px);font-size:clamp(16px,2vw,24px);}
+  @media (orientation:portrait){
+    #capture.side-mode{flex-direction:column;padding:4vh 6vw;}
+    #capture.side-mode #cam-wrap{width:min(88vw,56vh);height:min(88vw,56vh);}
+    #capture.side-mode .cap-side{flex:none;width:100%;}
+    #capture.side-mode #countdown{font-size:clamp(90px,16vh,180px);}
+  }
 
   #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;}
   #flash.fire{animation:flash .5s ease-out;}
@@ -353,6 +376,7 @@
   <div id="countdown"></div>
   <div id="flash"></div>
   <div class="prompt-band" id="prompt-band"></div>
+  <div class="cap-side" id="cap-side"></div>
   <button id="capture-exit" aria-label="Cancel">✕</button>
 </section>
 
@@ -784,7 +808,19 @@ async function startCam(){
 }
 
 /* ---------- session flow ---------- */
+function syncCaptureLayout(){
+  const cap=$('#capture'), side=$('#cap-side'), exit=$('#capture-exit');
+  const tally=$('#tally'), cd=$('#countdown'), prompt=$('#prompt-band');
+  const sideMode = state.startMode==='live';
+  cap.classList.toggle('side-mode', sideMode);
+  if(sideMode){
+    if(cd.parentNode!==side){ side.appendChild(tally); side.appendChild(cd); side.appendChild(prompt); }
+  }else if(cd.parentNode!==cap){
+    cap.insertBefore(tally, exit); cap.insertBefore(cd, exit); cap.insertBefore(prompt, exit);
+  }
+}
 async function beginSession(){
+  syncCaptureLayout();
   const ok = await startCam();
   show('capture');
   if(!ok){
@@ -813,9 +849,9 @@ function cancelSession(){
 function getReady(){
   return new Promise(res=>{
     const el=$('#countdown');
-    el.innerHTML='<span class="ready">Get ready…</span>';
+    el.innerHTML='<span class="ready">Get ready</span>';
     $('#prompt-band').textContent = state.photos>1 ? "We'll take "+state.photos+" photos" : '';
-    setTimeout(res, 2000);
+    setTimeout(res, 1000);
   });
 }
 
