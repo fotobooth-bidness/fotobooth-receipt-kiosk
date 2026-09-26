@@ -631,6 +631,12 @@
         </select>
       </div>
 
+      <div class="field">
+        <label>Print enhancement</label>
+        <div class="row"><div class="toggle" id="t-prep"><div class="knob"></div></div><span id="t-prep-lbl">On</span></div>
+        <div class="admin-note">Auto-levels, light sharpening and a midtone lift before dithering, for clearer faces on thermal paper (especially in dim rooms). Turn off to compare.</div>
+      </div>
+
       <div class="field full">
         <label>Printing — Citizen CT-S4000</label>
         <select id="f-print-mode" style="margin-bottom:12px;">
@@ -723,6 +729,7 @@ const state = {
   contrast: 0,
   qr: true,
   dither: 'floyd',
+  printPrep: true,   // auto-levels + sharpen + midtone lift before dithering
   printMode: 'webusb',
   printerIP: '',
   printerPort: 80,
@@ -736,7 +743,7 @@ const state = {
    Settings + daily analytics survive reloads/power cycles on the tablet.
    Wrapped in try/catch so the kiosk still runs if storage is unavailable. */
 const STORE_KEY='fotobooth.kiosk.v1';
-const PERSIST_FIELDS=['photos','qrUrl','qrCaption','countdown','copies','eventLogo','eventName','headerMode','thanksText','startMode','attractMode','brandType','brandImg','brandText','shareMode','galleryEnabled','galleryEvent','galleryUploadUrl','galleryBaseUrl','cameraId','bright','contrast','qr','dither','printMode','printerIP','printerPort','pin'];
+const PERSIST_FIELDS=['photos','qrUrl','qrCaption','countdown','copies','eventLogo','eventName','headerMode','thanksText','startMode','attractMode','brandType','brandImg','brandText','shareMode','galleryEnabled','galleryEvent','galleryUploadUrl','galleryBaseUrl','cameraId','bright','contrast','qr','dither','printPrep','printMode','printerIP','printerPort','pin'];
 function todayKey(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
 function saveState(){
   try{
@@ -903,29 +910,61 @@ function fireFlash(){
 }
 
 /* grab current video frame -> square -> dithered dataURL */
+const CLEAN_SIZE=800;   // = the single photo's width in printer dots (832-dot paper minus margins)
 function grabFrame(){
   const v=$('#video');
-  const c=$('#work');
-  const size=600;
-  c.width=size; c.height=size;
-  const ctx=c.getContext('2d');
-  // cover-crop to square, mirror to match preview
   const vw=v.videoWidth||1280, vh=v.videoHeight||720;
-  const s=Math.min(vw,vh);
-  const sx=(vw-s)/2, sy=(vh-s)/2;
-  ctx.save();
-  ctx.translate(size,0); ctx.scale(-1,1);
-  ctx.drawImage(v, sx,sy,s,s, 0,0,size,size);
-  ctx.restore();
-  // keep a clean copy BEFORE dithering — this is what the gallery/screen shows,
-  // since the dithered version only looks right printed small on thermal paper.
-  const clean = c.toDataURL('image/png');
-  ditherCanvas(ctx,size,size);
-  const dithered = c.toDataURL('image/png');
+  const s=Math.min(vw,vh), sx=(vw-s)/2, sy=(vh-s)/2;
+  // clean, undithered copy at print resolution — used for printing (dithered at the exact
+  // printed size) and for the online gallery. Cover-crop to square, mirrored like the preview.
+  const cc=document.createElement('canvas'); cc.width=cc.height=CLEAN_SIZE;
+  const cx=cc.getContext('2d'); cx.imageSmoothingEnabled=true; cx.imageSmoothingQuality='high';
+  cx.save(); cx.translate(CLEAN_SIZE,0); cx.scale(-1,1);
+  cx.drawImage(v, sx,sy,s,s, 0,0,CLEAN_SIZE,CLEAN_SIZE);
+  cx.restore();
+  const clean=cc.toDataURL('image/png');
+  // smaller dithered copy for the on-screen receipt + share button, processed the same
+  // way as the print so what guests see on screen matches the paper.
+  const size=600, c=$('#work'); c.width=size; c.height=size;
+  const ctx=c.getContext('2d'); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+  ctx.drawImage(cc,0,0,size,size);
+  const img=ctx.getImageData(0,0,size,size);
+  if(state.printPrep!==false) printPrepImageData(img);
+  ditherImageData(img);
+  ctx.putImageData(img,0,0);
+  const dithered=c.toDataURL('image/png');
   return { dithered, clean };
 }
 
 /* ---------- dithering ---------- */
+/* Print prep, applied before dithering (matches what good thermal photo booths do):
+   1) auto-levels — stretch the darkest/brightest 0.5% to full black/white, so dim indoor
+      webcam frames aren't flat and grey (gain capped so near-uniform scenes don't turn to noise)
+   2) light unsharp mask — dithering softens edges; this keeps eyes/hair/outlines defined
+   3) midtone lift — thermal dots bleed slightly on paper, so midtones print darker than the
+      file; lifting them compensates and keeps faces from going muddy */
+function printPrepImageData(img){
+  const w=img.width, h=img.height, d=img.data, n=w*h;
+  const g=new Float32Array(n), hist=new Uint32Array(256);
+  for(let i=0,p=0;p<n;i+=4,p++){ const l=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]; g[p]=l; hist[Math.min(255,l|0)]++; }
+  const pct=q=>{ let acc=0; const t=n*q; for(let v=0;v<256;v++){ acc+=hist[v]; if(acc>=t) return v; } return 255; };
+  const lo=pct(0.005), hi=pct(0.995);
+  const gain=Math.min(2.5, 255/Math.max(1,hi-lo)), mid=(lo+hi)/2;
+  for(let p=0;p<n;p++) g[p]=(g[p]-mid)*gain+127.5;
+  // separable box blur (radius 2, two passes ≈ gaussian) for the unsharp mask
+  const r=2, tmp=new Float32Array(n), bl=new Float32Array(n);
+  const boxH=(src,dst)=>{ for(let y=0;y<h;y++){ const o=y*w; for(let x=0;x<w;x++){ let s=0,c=0; for(let k=-r;k<=r;k++){ const xx=x+k; if(xx>=0&&xx<w){ s+=src[o+xx]; c++; } } dst[o+x]=s/c; } } };
+  const boxV=(src,dst)=>{ for(let x=0;x<w;x++){ for(let y=0;y<h;y++){ let s=0,c=0; for(let k=-r;k<=r;k++){ const yy=y+k; if(yy>=0&&yy<h){ s+=src[yy*w+x]; c++; } } dst[y*w+x]=s/c; } } };
+  boxH(g,tmp); boxV(tmp,bl); boxH(bl,tmp); boxV(tmp,bl);
+  const lut=new Float32Array(256); for(let v=0;v<256;v++) lut[v]=255*Math.pow(v/255,0.8);
+  for(let i=0,p=0;p<n;i+=4,p++){
+    let v=g[p]; const diff=v-bl[p];
+    if(Math.abs(diff)>2) v+=0.8*diff;
+    v=Math.max(0,Math.min(255,v));
+    const o=lut[v|0];
+    d[i]=d[i+1]=d[i+2]=o; d[i+3]=255;
+  }
+}
 function ditherImageData(img){
   const w=img.width, h=img.height, d=img.data;
   const b=state.bright, con=state.contrast;
@@ -944,12 +983,16 @@ function ditherImageData(img){
     const diffusion = mode==='atkinson'
       ? [[1,0,1/8],[2,0,1/8],[-1,1,1/8],[0,1,1/8],[1,1,1/8],[0,2,1/8]]
       : [[1,0,7/16],[-1,1,3/16],[0,1,5/16],[1,1,1/16]]; // floyd
+    // serpentine scan (alternate direction each row) — stops the error always drifting the
+    // same way, which is what produces the "wormy" diagonal streaks in flat areas
     for(let y=0;y<h;y++){
-      for(let x=0;x<w;x++){
+      const rev = (mode!=='atkinson') && (y&1);
+      for(let i=0;i<w;i++){
+        const x = rev ? (w-1-i) : i;
         const p=y*w+x, old=gray[p], nv=old<128?0:255, err=old-nv;
         put(p,nv);
         for(const[dx,dy,f]of diffusion){
-          const nx=x+dx, ny=y+dy;
+          const nx=x+(rev?-dx:dx), ny=y+dy;
           if(nx>=0&&nx<w&&ny>=0&&ny<h) gray[ny*w+nx]+=err*f;
         }
       }
@@ -1271,35 +1314,35 @@ async function buildReceiptCanvas(){
   let cleanSrc = (state.cleanShots && state.cleanShots.length===state.shots.length) ? state.cleanShots : null;
   if(!shotsSrc || shotsSrc.length===0){ shotsSrc = [TEST_PATTERN_IMG]; cleanSrc = null; }
   const imgs=[]; for(const src of shotsSrc) imgs.push(await loadImg(src));
+  let cleanImgs=null;
+  if(cleanSrc){ try{ cleanImgs=[]; for(const src of cleanSrc) cleanImgs.push(await loadImg(src)); }catch(e){ cleanImgs=null; } }
+  // Each photo is resized from its clean copy to its EXACT printed size and dithered there,
+  // so one pixel = one printer dot. (Dithering at another size and stretching/shrinking the
+  // dot pattern afterwards is what made prints coarse, clumpy and muddy.)
+  const renderPhoto=(src,px,py,size)=>{
+    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+    ctx.drawImage(src,px,py,size,size);
+    const sub=ctx.getImageData(px,py,size,size);
+    if(state.printPrep!==false) printPrepImageData(sub);
+    ditherImageData(sub);
+    ctx.putImageData(sub,px,py);
+  };
   if(imgs.length===4){
     const gap=10;
     const cell=Math.floor((innerW-gap)/2);
     const gridH=cell*2+gap;
-    // Re-dither each photo AT the cell's actual print size, instead of shrinking an
-    // already-dithered 600px image down with nearest-neighbor — shrinking a dither pattern
-    // that way deletes dots unevenly and prints much darker/noisier than intended.
-    let cleanImgs=null;
-    if(cleanSrc){ try{ cleanImgs=[]; for(const src of cleanSrc) cleanImgs.push(await loadImg(src)); }catch(e){ cleanImgs=null; } }
     blocks.push({type:'draw',h:gridH,fn:(yy)=>{
-      ctx.imageSmoothingEnabled=false;
       const pos=[[pad,yy],[pad+cell+gap,yy],[pad,yy+cell+gap],[pad+cell+gap,yy+cell+gap]];
-      if(cleanImgs){
-        pos.forEach(([px,py],i)=>{
-          ctx.drawImage(cleanImgs[i], px,py, cell,cell);   // draw the CLEAN source at cell size
-          const sub=ctx.getImageData(px,py,cell,cell);      // then dither just that cell in place
-          ditherImageData(sub);
-          ctx.putImageData(sub,px,py);
-        });
-      }else{
-        // no clean copies available (e.g. an older/placeholder session) — fall back to the
-        // previous behavior rather than failing.
-        imgs.forEach((im,i)=>ctx.drawImage(im,pos[i][0],pos[i][1],cell,cell));
-      }
+      if(cleanImgs) pos.forEach(([px,py],i)=>renderPhoto(cleanImgs[i],px,py,cell));
+      else { ctx.imageSmoothingEnabled=false; imgs.forEach((im,i)=>ctx.drawImage(im,pos[i][0],pos[i][1],cell,cell)); }
     }});
     y+=gridH+12;
   }else{
     const s=innerW;
-    blocks.push({type:'draw',h:s,fn:(yy)=>{ ctx.imageSmoothingEnabled=false; ctx.drawImage(imgs[0],pad,yy,s,s); }});
+    blocks.push({type:'draw',h:s,fn:(yy)=>{
+      if(cleanImgs) renderPhoto(cleanImgs[0],pad,yy,s);
+      else { ctx.imageSmoothingEnabled=false; ctx.drawImage(imgs[0],pad,yy,s,s); }   // placeholder / older sessions
+    }});
     y+=s+12;
   }
 
@@ -1756,6 +1799,7 @@ function syncAdmin(){
   syncAttract();
   syncShareSeg();
   syncGallery();
+  syncPrep();
   refreshStats();
 }
 function syncAttract(){
@@ -1810,6 +1854,12 @@ function syncShareSeg(){
 document.querySelectorAll('#seg-share .seg-btn').forEach(b=>{
   b.addEventListener('click',()=>{ state.shareMode=b.dataset.share; syncShareSeg(); saveState(); });
 });
+function syncPrep(){
+  const on = state.printPrep!==false;
+  $('#t-prep').classList.toggle('on', on);
+  $('#t-prep-lbl').textContent = on ? 'On' : 'Off';
+}
+$('#t-prep').addEventListener('click',()=>{ state.printPrep = !(state.printPrep!==false); syncPrep(); saveState(); });
 function syncGallery(){
   $('#t-gallery').classList.toggle('on', state.galleryEnabled);
   $('#t-gallery-lbl').textContent = state.galleryEnabled ? 'On' : 'Off';
